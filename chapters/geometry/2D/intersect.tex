@@ -1,0 +1,56 @@
+\subsection{多边形面积与凸多边形面积交}
+
+前置模板：\textbf{\texttt{点}}。\verb|polygonArea(a)|：$a$ 为按边界顺序给出的任意简单多边形（可凹、不自交），返回其面积，$\mathcal{O}(n)$。\verb|polygonIntersectionArea(A,B)|：两凸多边形交的面积；$A,B$ 顶点顺序任意（内部统一转为逆时针），面积以 \texttt{long double} 返回；空交或仅边界/顶点接触时返回 $0$。复杂度 $\mathcal{O}(|A|\cdot|B|)$。
+
+\begin{lstlisting}
+template<typename T>
+long double polygonArea(const std::vector<Point<T>>& a){
+    long double s = 0;
+    for (int i = 0, j = (int)a.size() - 1; i < (int)a.size(); j = i++)
+        s += (long double)a[j].x * a[i].y - (long double)a[j].y * a[i].x;
+    return std::abs(s) / 2;
+}
+
+template<typename T>
+long double polygonIntersectionArea(std::vector<Point<T>> A, std::vector<Point<T>> B){
+    using F = long double;
+    struct Pt { F x, y; };
+    auto conv = [](const auto& p){
+        std::vector<Pt> r;
+        for (const auto& q : p) r.push_back({(F)q.x, (F)q.y});
+        return r;
+    };
+    auto signedA = [](std::vector<Pt>& p){
+        F s = 0;
+        for (int i = 0; i < (int)p.size(); i++){
+            Pt a = p[i], b = p[(i + 1) % (int)p.size()];
+            s += a.x * b.y - a.y * b.x;
+        }
+        return s;
+    };
+    std::vector<Pt> C = conv(A), D = conv(B);
+    if ((int)C.size() < 3 || (int)D.size() < 3) return 0;
+    if (signedA(C) < 0) std::reverse(C.begin(), C.end());
+    if (signedA(D) < 0) std::reverse(D.begin(), D.end());
+    auto inter = [](Pt u, Pt v, Pt a, Pt b){
+        F dx = b.x - a.x, dy = b.y - a.y;
+        F s = ((a.x - u.x) * dy - (a.y - u.y) * dx) /
+              ((v.x - u.x) * dy - (v.y - u.y) * dx);
+        return Pt{u.x + s * (v.x - u.x), u.y + s * (v.y - u.y)};
+    };
+    std::vector<Pt> cur = C;
+    for (int i = 0; i < (int)D.size() && !cur.empty(); i++){
+        Pt a = D[i], b = D[(i + 1) % (int)D.size()];
+        std::vector<Pt> nxt;
+        for (int k = 0; k < (int)cur.size(); k++){
+            Pt u = cur[k], v = cur[(k + 1) % (int)cur.size()];
+            F inU = (b.x - a.x) * (u.y - a.y) - (b.y - a.y) * (u.x - a.x);
+            F inV = (b.x - a.x) * (v.y - a.y) - (b.y - a.y) * (v.x - a.x);
+            if (inU * inV < 0) nxt.push_back(inter(u, v, a, b));
+            if (inV >= 0) nxt.push_back(v);
+        }
+        cur = nxt;
+    }
+    return cur.size() < 3 ? 0 : std::abs(signedA(cur)) / 2;
+}
+\end{lstlisting}

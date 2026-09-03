@@ -1,0 +1,92 @@
+\section{矩阵}
+
+用于矩阵运算与矩阵快速幂，常见于线性递推求项、图上路径计数等需要大量矩阵乘法的场景。\texttt{Pow(a,k)}（$a^k$）要求 $a$ 为方阵且指数 $k\ge 0$；\texttt{normalize()} 将矩阵置为单位阵。
+
+\begin{lstlisting}
+using std::vector;
+template<typename T,typename Mul = std::multiplies<T>,typename Add = std::plus<T>>
+struct Matrix{
+    int N,M;
+    vector<vector<T>> value;
+    Matrix(int n,int m):N(n),M(m),value(vector<vector<T>>(n,vector<T>(m))){}
+    Matrix(int n):N(n),M(n),value(vector<vector<T>>(n,vector<T>(n))){}
+    Matrix(const vector<T>& v):N(1),M(v.size()),value(vector<vector<T>>(1,v)){}
+    Matrix(const vector<vector<T>>& v):value(v),N(v.size()),M(v[0].size()){}
+    void normalize(){
+        assert(N==M);
+        for (int i = 0;i < N;i++){
+            for (int j = 0;j < N;j++){
+                value[i][j] = T(i == j);
+            }
+        }
+    }
+    void fill(const T& val){
+        std::fill(value.begin(),value.end(),vector<T>(M,val));
+    }
+    vector<T>& operator[](int idx){
+        return value[idx];
+    }
+
+    Matrix& operator+=(const Matrix &x){
+        assert(N==x.N&&M==x.M);
+        for (int i = 0; i < N; ++i){
+            for (int j = 0; j < M; ++j){
+                value[i][j] = Add()(value[i][j],x.value[i][j]);
+            }
+        }
+        return *this;
+    }
+    friend Matrix operator+(Matrix x,const Matrix &y){
+        return x += y;
+    }
+    friend Matrix operator*(const Matrix& a,const Matrix& b){
+        assert(a.M == b.N);
+        Matrix r(a.N,b.M);
+        for (int i = 0; i < a.N; ++i){
+            for (int k = 0; k < a.M; ++k){
+                for (int j = 0; j < b.M; ++j){
+                    r.value[i][j] = Add()(r.value[i][j],Mul()(a.value[i][k],b.value[k][j]));
+                }
+            }
+        }
+        return r;
+    }
+    Matrix& operator *=(const Matrix &x){
+        Matrix r = *this*x;
+        std::swap(value,r.value);
+        return *this;
+    }
+    static Matrix Pow(const Matrix& a,long long p){
+        assert(a.N == a.M);
+        assert(p >= 0);
+        Matrix r(a.N),tmp = a;
+        r.normalize();
+        for (;p;p >>= 1,tmp *= tmp) if (p&1) r *= tmp;
+        return r;
+    }
+    Matrix operator^(long long p){
+        return Pow(*this,p);
+    }
+    Matrix& operator^=(long long p){
+        *this = Pow(*this,p);
+        return *this;
+    }
+
+    friend std::istream& operator>>(std::istream& is,Matrix& m){
+        for (int i = 0; i < m.N; ++i){
+            for (int j = 0; j < m.M; ++j){
+                is >> m.value[i][j];
+            }
+        }
+        return is;
+    }
+    friend std::ostream& operator<<(std::ostream& os,const Matrix& m){
+        for (int i = 0; i < m.N; ++i){
+            for (int j = 0; j < m.M; ++j){
+                os << m.value[i][j] << " \n"[j==m.M-1];
+            }
+        }
+        return os;
+    }
+};
+\end{lstlisting}

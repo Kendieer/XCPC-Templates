@@ -1,0 +1,356 @@
+\section{快速数论变换(NTT)以及多项式全家桶}
+
+需要 \texttt{ModInt} 取模类以及对应的原根。
+
+NTT 是 FFT 的模意义版本：用模数原根 $g$ 代替复数单位根，全程整数运算、无浮点误差；模数 $998244353=119\times 2^{23}+1$，原根 $g=3$，支持长度不超过 $2^{23}$ 的卷积。以下模板全部复用 \texttt{dft} 做正/逆变换。
+
+注意：更大长度需用不同模数的 NTT + CRT 还原。
+
+\subsection{DFT 与 IDFT 函数}
+
+以下所有模板均依赖 \texttt{dft} 做正/逆变换。
+
+\texttt{dft(len,a,sign)}：对长度 \texttt{len}（$2$ 的幂）的系数向量 \texttt{a} 做正/逆变换，\texttt{sign}=1 正、$-1$ 逆，逆变换末尾已自动除以 \texttt{len}。
+
+\begin{lstlisting}
+constexpr int PolyMod = 998244353;
+using MInt = ModInt<PolyMod>;
+const MInt g = 3,gi = ~g;
+using Poly = std::vector<MInt>;
+using std::min;
+using std::max;
+
+void dft(const int& len,Poly& arr,int sign){ // sign = -1 -> IDFT
+    int lg2 = std::__lg(len);
+    std::vector<int> revi(len);
+    for (int i = 1;i < len;i ++)
+        revi[i] = (revi[i>>1]>>1) | ((i&1)<<(lg2-1));
+    for (int i = 0;i < len;i ++)
+        if (i < revi[i]) std::swap(arr[i],arr[revi[i]]);
+    for (int p = 2;p <= len;p <<= 1){
+        int mid = p >> 1;
+        MInt Wn = (sign == 1 ? g : gi);
+        Wn = MInt::Pow(Wn,(PolyMod-1)/p);
+        for (int l = 0;l < len;l += p){
+            MInt w = 1,tmp;
+            for (int i = l,j = 0;j < mid;i ++,j ++,w *= Wn){
+                tmp = arr[i+mid] * w;
+                arr[i+mid] = arr[i].val - tmp;
+                arr[i] += tmp;
+            }
+        }
+    }
+    if (sign == -1){
+        MInt inv = ~MInt(len);
+        for (int i = 0;i < arr.size();i ++) arr[i] *= inv;
+    }
+}
+\end{lstlisting}
+
+\subsection{多项式杂项函数}
+
+\subsubsection{多项式求导和多项式积分}
+
+求导：$(\sum a_ix^i)'=\sum (i+1)a_{i+1}x^i$，末项置零；积分是其逆运算，每项除以 $i$，积分常数取 $0$。二者是 \texttt{ln}/\texttt{exp} 的基础。
+
+\begin{lstlisting}
+Poly polyDeriv(Poly f){
+    assert(f.size());
+    for (int i = 0;i < f.size()-1;i ++) f[i] = f[i+1] * (i+1);
+    f.back() = 0;
+    return f;
+}
+
+Poly polyInteg(Poly f){
+    assert(f.size());
+    for (int i = f.size()-1;i >= 1;i --) f[i] = f[i-1] / i;
+    f.front() = 0;
+    return f;
+}
+\end{lstlisting}
+
+\subsection{多项式乘法}
+
+系数表示 $\to$ 点值逐项相乘 $\to$ 逆变换回系数，复杂度 $\mathcal{O}(n\log n)$；\texttt{limit} 取大于 $|A|+|B|-1$ 的 $2$ 的幂。
+
+\begin{lstlisting}
+Poly& operator*=(Poly& A,Poly B){
+    int limit = 1,siz = A.size() + B.size() - 1;
+    while (limit <= siz) limit <<= 1;
+    A.resize(limit,0);
+    B.resize(limit,0);
+    dft(limit,A,1);
+    dft(limit,B,1);
+    for (int i = 0;i < limit;i ++) A[i] *= B[i];
+    dft(limit,A,-1);
+    A.resize(siz);
+    return A;
+}
+
+Poly polyMul(Poly A,Poly B){
+    return A *= B;
+}
+\end{lstlisting}
+
+\subsubsection{多项式转置乘法}
+
+\texttt{mulT(A,B)} 返回长度 $|A|$ 的系数向量，供多点求值与快速插值内部使用，一般不单独调用。依赖 \textbf{\texttt{多项式乘法}}。
+
+\begin{lstlisting}
+Poly mulT(Poly A,Poly B){
+    const int& n = A.size(),m = B.size();
+    std::reverse(B.begin(),B.end());
+    auto F = polyMul(A,B);
+    for (int i = 0;i < n;i++) A[i] = F[i + m - 1];
+    return A;
+}
+\end{lstlisting}
+
+\subsection{多项式乘法逆}
+
+前置模板：\textbf{\texttt{多项式乘法}}
+
+Newton 迭代倍增：当前逆 $G$（长度 $i$）更新为 $G(2-FG)\bmod x^{2i}$ 直到覆盖 $n$，复杂度 $\mathcal{O}(n\log n)$，要求 $F[0]\neq 0$。
+
+\begin{lstlisting}
+Poly polyInv(const Poly& F){
+    Poly G(1,1 / F[0]);
+    const int& n = F.size();
+    for (int i = 1;i < n << 1;i <<= 1){
+        const int& len = i << 1;
+        G.resize(len);
+        Poly F2(F.begin(),F.begin()+std::min(i,n));
+        F2.resize(len,0);
+        dft(len,F2,1);
+        dft(len,G,1);
+        for (int j = 0;j < len;j++){
+            G[j] = (2 - G[j] * F2[j]) * G[j];
+        }
+        dft(len,G,-1);
+        std::fill(G.begin()+i,G.end(),0);
+    }
+    G.resize(n);
+    return G;
+}
+\end{lstlisting}
+
+\subsection{多项式除法与多项式求余}
+
+前置模板：\textbf{\texttt{多项式乘法，多项式乘法逆}}。
+
+$A=BQ+R$（$\deg R<\deg B$）：\texttt{polyDiv(A,B)} 返回商 $Q$，\texttt{polyMod(A,B)} 返回余 $R$。要求 $\deg A\ge\deg B$，否则商为 $0$、余为 $A$。复杂度 $\mathcal{O}(n\log n)$。
+
+\begin{lstlisting}
+Poly& operator/=(Poly& A,Poly B){
+    const int& n = A.size(),m = B.size();
+    if (n < m) { A.clear(); return A; }
+    const int& k = n - m + 1;
+    std::reverse(A.begin(),A.end());
+    std::reverse(B.begin(),B.end());
+    A.resize(k);
+    B.resize(k);
+    A *= polyInv(B);
+    A.resize(k);
+    std::reverse(A.begin(),A.end());
+    return A;
+}
+
+Poly polyDiv(Poly A,Poly B){
+    return A /= B;
+}
+
+Poly& operator%=(Poly& A,Poly B){
+    const int& n = A.size(),m = B.size();
+    if (n < m) return A;
+    Poly C = polyDiv(A,B);
+    B *= C;
+    for (int i = 0;i < n;i++){
+        A[i] -= B[i];
+    }
+    A.resize(m-1);
+    return A;
+}
+
+Poly polyMod(Poly A,Poly B){
+    return A %= B;
+}
+\end{lstlisting}
+
+\subsection{多项式对数（自然底数）}
+
+需要前置模板：\textbf{\texttt{多项式杂项，多项式乘法，多项式乘法逆}}。
+
+$\ln F=\int F'/F$：先求导、乘逆、再积分，要求 $F[0]=1$。
+
+\begin{lstlisting}
+Poly polyLn(const Poly& F){
+    Poly dF = polyMul(polyDeriv(F),polyInv(F));
+    dF = polyInteg(dF);
+    dF.resize(F.size()); // 截断到与输入等长：ln F 只需次数低于 |F|
+    return dF;
+}
+\end{lstlisting}
+
+\subsection{多项式指数函数（exp）}
+
+需要前置模板：\textbf{\texttt{多项式杂项，多项式乘法，多项式乘法逆，多项式对数}}。
+
+Newton 迭代：$G\leftarrow G(1-\ln G+F)\bmod x^{2i}$，长度倍增，要求 $F[0]=0$。
+
+\begin{lstlisting}
+Poly polyExp(const Poly& F){
+    Poly G(1,1);
+    const int& n = F.size();
+    for (int i = 2;i < n << 1;i <<= 1){
+        G.resize(i);
+        Poly F2(polyLn(G));
+        for (int j = 0;j < min(i,n);j++){
+            F2[j] = F[j]-F2[j];
+        }
+        ++F2[0];
+        G *= F2;
+    }
+    G.resize(n);
+    return G;
+}
+\end{lstlisting}
+
+\subsection{多项式开根}
+
+需要前置模板：\textbf{\texttt{多项式乘法逆}}。
+
+Newton 迭代：$G\leftarrow \frac{1}{2}(G+F/G)\bmod x^{2i}$，$1/G$ 用乘法逆求，长度倍增；要求 $F[0]$ 平方根非零（$F[0]\neq 1$ 时先用 \texttt{Cipolla} 求二次剩余）。
+
+\begin{lstlisting}
+Poly polySqrt(const Poly& F){
+    Poly G(1,1);// 如果 F[0] 不为 1 需要求 F[0] 的二次剩余
+    const int& n = F.size();
+    const MInt& inv2 = ~MInt(2);
+    for (int i = 2;i < n << 1;i <<= 1){
+        G.resize(i);
+        Poly F2(F.begin(),F.begin()+min(i,n)),G2(G);
+        for (int j = 0;j < i;j++) G2[j] += G2[j];
+        G2 = polyInv(G2);
+        G2 *= F2;
+        G2.resize(i);
+        for (int j = 0;j < i;j++){
+            G[j] = G2[j] + G[j] * inv2;
+        }
+    }
+    G.resize(n);
+    return G;
+}
+\end{lstlisting}
+
+\subsection{多项式快速幂}
+
+前置模板：\textbf{\texttt{多项式杂项，多项式乘法，多项式乘法逆，多项式对数，多项式指数函数}}。
+
+$F^k=\exp(k\ln F)$：先取对数乘 $k$ 再指数还原，复杂度 $\mathcal{O}(n\log n)$；要求 $F[0]=1$（否则先提取常数项与最低次项）。
+
+\begin{lstlisting}
+Poly polyPow(Poly F,const int& k){
+    const int& n = F.size();
+    F = polyLn(F);
+    for (int i = 0;i < n;i++){
+        F[i] *= k;
+    }
+    return polyExp(F);
+}
+\end{lstlisting}
+
+\subsection{多项式多点求值}
+
+前置模板：\textbf{\texttt{多项式转置乘法，多项式乘法，多项式乘法逆}}。
+
+\texttt{mutipointsEval(F,Q)} 返回 $\big(F(Q_0),\dots,F(Q_{m-1})\big)$，其中 $m=|Q|$，即多项式 $F$ 在多点 $Q$ 处的取值；$|F|$ 与 $m$ 可不同。复杂度 $\mathcal{O}(n\log^2 n)$。
+
+\begin{lstlisting}
+std::vector<MInt> mutipointsEval(Poly F,std::vector<MInt> Q){
+    int n = F.size(),m = Q.size();
+    n = max(n,m);
+    F.resize(n),Q.resize(n);
+    std::vector<Poly> G(n << 2);
+    auto buildG = [&](this auto&& self,int i,int l,int r)->void {
+        if (l == r) {
+            G[i] = Poly(2,1);
+            G[i][1] = -Q[l];
+            return;
+        }
+        const int& mid = l + r >> 1;
+        self(i << 1,l,mid);
+        self(i << 1 | 1,mid+1,r);
+        G[i] = polyMul(G[i << 1],G[i << 1 | 1]);
+    };
+    buildG(1,0,n-1);
+    std::vector<MInt> ans(n);
+    auto conquer = [&](this auto&& self,int i,int l,int r,Poly f)->void {
+        f.resize(r-l+1);
+        if (l == r) {
+            ans[l] = f[0];
+            return;
+        }
+        const int& mid = l + r >> 1;
+        self(i << 1,l,mid,mulT(f,G[i << 1 | 1]));
+        self(i << 1 | 1,mid+1,r,mulT(f,G[i << 1]));
+    };
+    conquer(1,0,n-1,mulT(F,polyInv(G[1])));
+    ans.resize(m);
+    return ans;
+}
+\end{lstlisting}
+
+\subsection{多项式快速插值}
+
+前置模板：\textbf{\texttt{多项式转置乘法，多项式乘法，多项式乘法逆}}。
+
+\texttt{mutipointsInterp(X,Y)}：给定互异节点 $X_i$ 与对应取值 $Y_i$（$|X|=|Y|=n$），返回过全部 $(X_i,Y_i)$ 点、次数 $<n$ 的多项式系数向量。复杂度 $\mathcal{O}(n\log^2 n)$。
+
+\begin{lstlisting}
+Poly mutipointsInterp(const std::vector<MInt>& X,const std::vector<MInt>& Y){
+    const int& n = X.size();
+    std::vector<Poly> G(n << 2);
+    auto buildG = [&](this auto&& self,int i,int l,int r)->void {
+        if (l == r) {
+            G[i] = {MInt(1),-X[l]};
+            return;
+        }
+        const int& mid = l + r >> 1;
+        self(i << 1,l,mid);
+        self(i << 1 | 1,mid+1,r);
+        G[i] = polyMul(G[i << 1],G[i << 1 | 1]);
+    };
+    buildG(1,0,n-1);
+    Poly GInv = polyInv(G[1]);
+    std::reverse(G[1].begin(),G[1].end());
+    Poly F = polyDeriv(G[1]);
+    std::vector<MInt> dy(n);
+    auto eval = [&](this auto&& self,int i,int l,int r,Poly f)->void {
+        f.resize(r-l+1);
+        if (l == r) {
+            dy[l] = f[0];
+            return;
+        }
+        const int& mid = l + r >> 1;
+        self(i << 1,l,mid,mulT(f,G[i << 1 | 1]));
+        self(i << 1 | 1,mid+1,r,mulT(f,G[i << 1]));
+        std::reverse(G[i << 1].begin(),G[i << 1].end());
+        std::reverse(G[i << 1 | 1].begin(),G[i << 1 | 1].end());
+    };
+    eval(1,0,n-1,mulT(F,GInv));
+    auto conquer = [&](this auto&& self,int i,int l,int r)->Poly {
+        if (l == r) {
+            return {Y[l] * MInt::Pow(dy[l],PolyMod-2)};
+        }
+        const int& mid = l + r >> 1;
+        Poly L = self(i << 1,l,mid);
+        Poly R = self(i << 1 | 1,mid+1,r);
+        L *= G[i << 1 | 1];
+        R *= G[i << 1];
+        if (L.size() < R.size()) L.swap(R);
+        for (int i = 0;i < R.size();i++) L[i] += R[i];
+        return L;
+    };
+    return conquer(1,0,n-1);
+}
+\end{lstlisting}

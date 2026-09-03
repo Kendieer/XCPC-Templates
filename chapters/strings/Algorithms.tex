@@ -1,0 +1,190 @@
+\section{KMP（border 数组）}
+
+用于单模式串匹配。构造时传入模式串 \texttt{base}，之后调用 \texttt{operator()(str)} 得到它在 \texttt{str} 中的所有出现位置，复杂度 $\mathcal{O}(n+m)$。
+
+\texttt{nxt[i]} 为 \texttt{base} 每个前缀的最长真 border（border 即既作前缀又作后缀的子串）长度；\texttt{operator()} 返回模式串在文本中的所有出现起点下标，重叠出现同样统计。
+
+\begin{lstlisting}
+struct KMP{
+    std::vector<int> nxt;
+    std::string match;
+    KMP(const std::string &base):nxt(base.size()),match(base){
+        for(int p=0,itr=1;itr < base.size();){
+            if (base[itr] == base[p]) nxt[itr++] = ++p;
+            else {
+                if (!p) nxt[itr++] = 0;
+                else p=nxt[p-1];
+            }
+        }
+    }
+    std::vector<int> operator()(const std::string &str){ // 获得每个子串的位置数组
+        std::vector<int> ans;
+        for(int p = 0,itr = 0;itr < str.size();){
+            if (match[p] == str[itr]) p++,itr++;
+            else {
+                if (!p) itr++;
+                else p = nxt[p-1];
+            }
+            if (p == match.size()){
+                ans.push_back(itr-match.size());
+                p = nxt[p-1];
+            }
+        }
+        return ans;
+    }
+};
+\end{lstlisting}
+
+\section{Manacher}
+
+用于求字符串的所有回文半径与最长回文子串，复杂度 $\mathcal{O}(n)$。
+
+\texttt{work(str)} 返回 \texttt{ans}：其下标对应插入分隔符后的变换串（原位置 $i$ 的字符在变换下标 $2i+2$），每项即该中心的最长回文长度，$\max(\texttt{ans})$ 即最长回文子串长度。
+
+\begin{lstlisting}
+namespace Manacher{
+    using Container=std::string;
+    void work(Container &str,std::vector<int> &ans){
+        std::vector<int> ch(str.size()*2+3,-1);
+        ans = std::vector<int>(str.size()*2+3,0);
+        ch[0] = 448268,ch[ch.size()-1] = -ch[0];
+        for (int i = 0; i < str.size(); ++i) ch[(i+1)*2] = str[i];
+        int mid = 1,r = 1;
+        for (int i = 1; i < ch.size() - 1; ++i) {
+            ans[i] = std::min(ans[mid*2-i],r-i);
+            while(ch[i+ans[i]+1]==ch[i-ans[i]-1]) ans[i]++;
+            if (i + ans[i] > r){
+                mid = i;
+                r = i + ans[i];
+            }
+        }
+    }
+    std::vector<int> work(Container &str){
+        std::vector<int> ans;
+        return work(str,ans),ans;
+    }
+};
+\end{lstlisting}
+
+\section{Z 函数（exKMP）}
+
+用于求串与其每个后缀的最长公共前缀（LCP），也可作单模式串匹配（exKMP），复杂度 $\mathcal{O}(n)$。
+
+\texttt{Z[i]} 为 \texttt{raw} 与后缀 \texttt{raw[i..]} 的 LCP，\texttt{Z[0]=n}；\texttt{operator()(str)} 返回 \texttt{P[i]} 即 \texttt{str[i..]} 与 \texttt{raw} 的 LCP，取值为 \texttt{m} 表示模式串出现在 \texttt{str[i]} 处。
+
+\begin{lstlisting}
+struct ZFun{
+    std::string raw;
+    std::vector<int> Z;
+    ZFun(const std::string &S):raw(S),Z(S.size()){
+        const int n = S.size();
+        for (int i = 1,l = 0,r = 0; i < n; ++i){
+            if (i < r){
+                if (Z[i-l] < r-i+1) Z[i] = Z[i-l];
+                else Z[i] = r-i+1;
+            }
+            while(i+Z[i] < n && S[i+Z[i]] == S[Z[i]]) Z[i]++;
+            if (i + Z[i] - 1 > r) l = i,r = i+Z[i]-1;
+        }
+        Z[0] = n;
+    }
+    std::vector<int> operator()(const std::string &S){
+        const int n = S.size(),m = raw.size();
+        std::vector<int> P(n);
+        for (int i = 0,l = 0,r = l;i < n; i++){
+            if (i < r){
+                if (Z[i-l] < r-i+1) P[i] = Z[i-l];
+                else P[i] = r-i+1;
+            }
+            while(i+P[i] < n && P[i] < m && S[i+P[i]] == raw[P[i]]) P[i]++;
+            if (i + P[i] - 1 > r) l = i,r = i+P[i]-1;
+        }
+        return P;
+    }
+};
+\end{lstlisting}
+
+\section{Lyndon 分解}
+
+用于把字符串分解为字典序不增的 Lyndon 词序列，是求最小循环节、最小表示（旋转同构串的字典序最小者）类问题的常用工具。每段是 Lyndon 词（严格字典序小于其所有真后缀的串）。
+
+\texttt{lyndon(str)} 返回每个 Lyndon 词的结束位置（左闭右开），相邻右端点之差即该词长度。
+
+\begin{lstlisting}
+namespace Lyndon{
+    std::vector<int> lyndon(const std::string &str){
+        std::vector<int> end;
+        for (int i = 0,j,k;i < str.size();){
+            for(j = i,k = i+1;k < str.size() && str[k] >= str[j];k++)
+                if (str[j] == str[k]) j++;
+                else j = i;
+            while (i <= j) end.push_back(i+k-j),i += k-j;
+        }
+        return end;
+    }
+}
+\end{lstlisting}
+
+\section{后缀数组}
+
+在 $\mathcal{O}(n\log n)$ 复杂度内求出 \texttt{sa},\texttt{rk},\texttt{h} 数组，用于后缀排序与 LCP 相关统计。
+
+\texttt{sa[i]} 为第 $i$ 小的后缀的起点，\texttt{rk[i]} 为后缀 $i$ 的排名，\texttt{h[i]} 为 \texttt{sa[i-1]} 与 \texttt{sa[i]} 的 LCP；任意两后缀的 LCP 是 \texttt{h} 对应区间的 $\min$（需 RMQ）。
+
+\begin{lstlisting}
+struct SuffixArray {
+    int n,m;
+    std::vector<int> rk,sa,h,bkt;
+    SuffixArray(const std::string& s):n(s.size()),m(std::max(n,128)),rk(n,0),sa(n,0),h(n,0),bkt(m,0){
+        for (int i = 0;i < n;i++) bkt[s[i]]++;
+        for (int i = 1;i < 128;i++) bkt[i] += bkt[i-1];
+        for (int i = n-1;i >= 0;i--) sa[--bkt[s[i]]] = i;
+        rk[sa[0]] = 0;
+        std::vector<int> id(n);
+        int c = 0;
+        for (int i = 1;i < n;i++){
+            int x = sa[i-1],y = sa[i];
+            if (s[x] != s[y]) bkt[c++] = i;
+            rk[y] = c;
+        }
+        bkt[c++] = n;
+        for (int k = 1;k < n && c < n;k <<= 1){
+            for (int i = 0;i < k;i++) id[i] = n - k + i;
+            int p = k;
+            for (int i = 0;i < n;i++) {
+                int x = sa[i] - k;
+                if (x >= 0) {
+                    id[p++] = x;
+                }
+            }
+            for (int i = n-1;i >= 0;i--){
+                int x = id[i];
+                sa[--bkt[rk[x]]] = x;
+            }
+            c = 0;
+            id[sa[0]] = 0;
+            for (int i = 1;i < n;i++){
+                int x = sa[i-1],y = sa[i];
+                if (rk[x] != rk[y] || x == n-k || rk[x + k] != rk[y + k]) {
+                    bkt[c++] = i;
+                }
+                id[y] = c;
+            }
+            bkt[c++] = n;
+            std::swap(id,rk);
+        }
+        for (int i = 0;i < n;i++) rk[sa[i]] = i;
+        for (int i = 0,k = 0;i < n;i++){
+            if (rk[i] == 0) continue;
+            if (k) k--;
+            int j = sa[rk[i] - 1];
+            while (j + k < n && i + k < n && s[i+k] == s[j+k]) k++;
+            h[rk[i]] = k;
+        }
+        bkt.clear();
+    }
+    int size() const {
+        return n;
+    }
+};
+\end{lstlisting}

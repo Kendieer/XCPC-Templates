@@ -1,0 +1,43 @@
+\subsection{曼哈顿与切比雪夫距离}
+
+前置模板：\textbf{\texttt{点}}。曼哈顿距离 $M=|x_1-x_2|+|y_1-y_2|$，切比雪夫距离 $C=\max(|x_1-x_2|,|y_1-y_2|)$。由 $|a|+|b|=\max(|a+b|,|a-b|)$，把点 $(x,y)$ 视作 $(x+y,\,x-y)$ 后，原曼哈顿距离恰为新坐标的切比雪夫距离；反向还原为 $\bigl(\tfrac{u+v}{2},\tfrac{u-v}{2}\bigr)$。常用于把斜线可达性（切比雪夫）问题转成矩形/曼哈顿形式，整数场景下 $(x+y,x-y)$ 的奇偶性一致，结果整体除以 $2$ 仍为整数。
+
+\verb|manhattan(a,b)|、\verb|chebyshev(a,b)|：两点间距离。\verb|maxManhattan(a)|：点集内最大点对曼哈顿距离；\verb|maxChebyshev(a)|：点集内最大点对切比雪夫距离。均 $\mathcal{O}(n)$，$a$ 为空或单点时返回 $0$。
+
+\begin{lstlisting}
+using i64 = long long;
+template<typename T>
+i64 manhattan(const Point<T>& a, const Point<T>& b){
+    return std::abs((i64)a.x - b.x) + std::abs((i64)a.y - b.y);
+}
+template<typename T>
+i64 chebyshev(const Point<T>& a, const Point<T>& b){
+    i64 dx = std::abs((i64)a.x - b.x);
+    i64 dy = std::abs((i64)a.y - b.y);
+    return std::max(dx, dy);
+}
+template<typename T>
+i64 maxManhattan(const std::vector<Point<T>>& p){
+    if ((int)p.size() < 2) return 0;
+    const i64 INF = (i64)4e18;
+    i64 a1 = INF, a2 = -INF, b1 = INF, b2 = -INF;
+    for (const auto& q : p){
+        i64 u = (i64)q.x + q.y;
+        i64 v = (i64)q.x - q.y;
+        a1 = std::min(a1, u); a2 = std::max(a2, u);
+        b1 = std::min(b1, v); b2 = std::max(b2, v);
+    }
+    return std::max(a2 - a1, b2 - b1);
+}
+template<typename T>
+i64 maxChebyshev(const std::vector<Point<T>>& p){
+    if ((int)p.size() < 2) return 0;
+    const i64 INF = (i64)4e18;
+    i64 a1 = INF, a2 = -INF, b1 = INF, b2 = -INF;
+    for (const auto& q : p){
+        a1 = std::min(a1, (i64)q.x); a2 = std::max(a2, (i64)q.x);
+        b1 = std::min(b1, (i64)q.y); b2 = std::max(b2, (i64)q.y);
+    }
+    return std::max(a2 - a1, b2 - b1);
+}
+\end{lstlisting}

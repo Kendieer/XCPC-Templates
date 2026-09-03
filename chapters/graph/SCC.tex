@@ -1,0 +1,67 @@
+\section{强连通分量与缩点}
+
+Tarjan 求有向图强连通分量（SCC）并缩点，缩点后得到 DAG。该版本为带点权合并版本。
+
+复杂度 $\mathcal{O}(n+m)$。
+
+\begin{lstlisting}
+struct SCC{
+    int size = 0,t = 0;
+    std::vector<std::vector<int>> G1,G2;
+    std::vector<int> low,dfn,W,stk,scc,W2;
+    std::vector<bool> instack;
+    SCC(int siz){
+        size = siz+1;
+        const std::vector<std::vector<int>*> tmp = {&low,&dfn,&W,&scc};
+        G1.resize(size),instack.resize(size);
+        G2.resize(1),W2.resize(1);
+        for (const auto &ptr : tmp) ptr->resize(size);
+    }
+    void connect(int u,int v){
+        G1[u].push_back(v);
+    }
+    std::vector<int>& operator[](int i){return G2[i];}
+    void tarjan(int u){
+        low[u] = dfn[u] = ++t;
+        instack[u] = 1,stk.push_back(u);
+        for (int v : G1[u]){
+            if (!dfn[v]) {
+                tarjan(v);
+                low[u] = std::min(low[u],low[v]);
+            } else if (instack[v]) {
+                low[u] = std::min(low[u],dfn[v]);
+            }
+        }
+        if (low[u] == dfn[u]) {
+            int p = -1;
+            G2.push_back({});
+            W2.push_back(0);
+            do {
+                p = stk.back();
+                stk.pop_back();
+                scc[p] = G2.size()-1;
+                W2[scc[p]] += W[p];
+                instack[p] = 0;
+            } while (p != u);
+        }
+    }
+    void work(){
+        G2.assign(1,{});
+        for (int i = 1;i < size;i ++)
+            if (!dfn[i]) tarjan(i);
+        for (int i = 1;i < size;i ++){
+            int u = scc[i];
+            for (int v : G1[i]){
+                if (u == scc[v]) continue;
+                G2[u].push_back(scc[v]);
+            }
+        }
+        for (int i = 1;i < G2.size();i ++){
+            std::sort(G2[i].begin(),G2[i].end());
+            G2[i].erase(std::unique(G2[i].begin(),G2[i].end()),G2[i].end());
+        }
+        size = G2.size();
+    }
+};
+\end{lstlisting}
+

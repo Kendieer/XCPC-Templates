@@ -1,0 +1,25 @@
+\subsection{笛卡尔树}
+
+构建时间复杂度为 $\mathcal{O}(n)$。
+
+由下标区间 $[s,n)$ 的值建笛卡尔树：中序遍历恰为下标顺序，同时满足堆性质。堆方向由比较器 \texttt{CMP} 决定——默认 \texttt{std::less} 建出“大根”树（根为区间内值最大的下标，父值 $\ge$ 子值）；要建满足 $a_{\operatorname{parent}(u)}<a_u$ 的小根笛卡尔树则传入 \texttt{std::greater<T>}。
+
+返回 $bst[u]=\{l,r\}$：下标 $u$ 结点的左/右儿子下标，无则 $-1$；左儿子下标总小于 $u$、右儿子大于 $u$（中序即下标序）。整棵树的根是唯一不为他人儿子的下标，即区间的最大（或最小）值所在位置。常见用途：区间 RMQ 转 LCA、笛卡尔树 DP、最大子矩形等。
+
+\begin{lstlisting}
+using p32 = std::array<int,2>;
+template<typename T,typename CMP = std::less<T>>
+std::vector<p32> Cartesian(std::vector<T>& arr,int s = 0,CMP compare = CMP()){
+    std::vector<int> stk;
+    std::vector<p32> bst(arr.size(),{-1,-1});
+    for (int i = s;i < arr.size();i ++){
+        while(stk.size() && compare(arr[stk.back()],arr[i])){
+            bst[i][0] = stk.back();
+            stk.pop_back();
+        }
+        if (stk.size()) bst[stk.back()][1] = i;
+        stk.push_back(i);
+    }
+    return bst;
+}
+\end{lstlisting}

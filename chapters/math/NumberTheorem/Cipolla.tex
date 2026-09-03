@@ -1,0 +1,43 @@
+\section{二次剩余（Cipolla 算法）}
+
+前置模板：\textbf{\texttt{取模类（静态模数）}} 与 \textbf{\texttt{复数}}。
+
+求 $x^2\equiv n\pmod{MOD}$ 的一个解，\verb|Quad_Restdue(n)| 返回该解（$n=0$ 时返回 $0$）；其中 $MOD$ 为 $Z$ 对应模数 $998244353$，要求为奇质数且 $n$ 是二次剩余，另一解为 $MOD-x$。
+
+\begin{lstlisting}
+Z i2;// i²
+template<>
+struct Complex<Z>{
+    Z real,imag;
+    constexpr Complex operator*=(const Complex& x){
+        Z rl = real * x.real + imag * x.imag * i2;
+        imag = x.imag * real + x.real * imag;
+        real = rl;
+        return *this;
+    }
+    constexpr friend Complex operator*(const Complex& x,const Complex y){
+        Complex r = x;
+        return (r *= y);
+    }
+    constexpr static Complex Pow(Complex x,long long p){
+        Complex res = {1,0};
+        for (;p;p >>= 1,x *= x){
+            if (p&1) res *= x;
+        }
+        return res;
+    }
+};
+std::mt19937_64 rnd(time(0));
+
+Z Quad_Restdue(Z n){
+    if (n() == 0) return 0;
+    long long p = 998244353;
+    assert(Z::Pow(n,(p-1)/2)() == 1);
+    Z a = rnd() % (p-1)+1;
+    while (Z::Pow(a,(p-1)/2)() != 1 || Z::Pow(a*a-n,(p-1)/2)() == 1){
+        a = rnd() % (p-1)+1;
+    }
+    i2 = a*a-n;
+    return Complex<Z>::Pow({a,1},(p+1)/2).real;
+}
+\end{lstlisting}

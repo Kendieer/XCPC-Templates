@@ -1,0 +1,65 @@
+\section{边双连通分量}
+
+Tarjan 求无向图边双连通分量（EBCC）并缩点，缩点后的 G2 是一棵树（桥树），树上边即割边。
+
+复杂度 $\mathcal{O}(n+m)$。
+
+\begin{lstlisting}
+struct EBCC{
+    int size = 0,t = 0,eid = 0;
+    std::vector<std::vector<std::pair<int,int>>> G1;// E:to,id
+    std::vector<std::vector<int>> G2;
+    std::vector<int> low,dfn,stk,ebcc;
+    EBCC(int siz){
+        size = siz + 1;
+        std::vector<std::vector<int>*> ptr = {&low,&dfn,&ebcc};
+        for (auto &v : ptr) v->assign(size,0);
+        G1.assign(size,{});
+        G2.assign(1,{});
+    }
+    void connect(int u,int v){
+        eid++;
+        G1[u].push_back({v,eid});
+        G1[v].push_back({u,eid});
+    }
+    auto& operator[](int i){return G2[i];}
+    void tarjan(int u,int e){
+        low[u] = dfn[u] = ++t;
+        stk.push_back(u);
+        for (const auto &[v,id] : G1[u]){
+            if (id == e) continue;
+            if (!dfn[v]) {
+                tarjan(v,id);
+                low[u] = std::min(low[u],low[v]);
+            } else low[u] = std::min(low[u],dfn[v]);
+        }
+        if (low[u] == dfn[u]){
+            int p = -1;
+            G2.push_back({});
+            do {
+                p = stk.back();
+                stk.pop_back();
+                ebcc[p] = G2.size() - 1;
+            } while(p != u);
+        }
+    }
+    void work(){
+        for (int u = 1;u < size;u ++)
+            if (!dfn[u]) tarjan(u,-1);
+        for (int i = 1;i < size;i ++){
+            int u = ebcc[i];
+            for (auto [v,id] : G1[i]){
+                if (ebcc[v] == u) continue;
+                G2[u].push_back(ebcc[v]);
+                G2[ebcc[v]].push_back(u);
+            }
+        }
+        size = G2.size();
+        for (int u = 1;u < size;u ++){
+            std::sort(G2[u].begin(),G2[u].end());
+            G2[u].erase(std::unique(G2[u].begin(),G2[u].end()),G2[u].end());
+        }
+    }
+};
+\end{lstlisting}
+

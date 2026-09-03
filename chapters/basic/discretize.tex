@@ -1,0 +1,15 @@
+\section{离散化}
+
+当数值范围大但实际出现的值个数有限时，把参与的值映射到连续的 $1..m$，适用于树状数组、扫描线等以下标为键的问题。\texttt{a} 为 $1$ 起始的数组，离散化后 \texttt{a[i]} 变为其在去重排序后的名次（$1$ 起始）。复杂度 $\mathcal{O}(n\log n)$。
+
+\begin{lstlisting}
+// 将 a（1-indexed）原地离散化，a[i] 变为排序去重后的名次
+std::vector<int> xs;
+for (int i = 1; i <= n; i++) xs.push_back(a[i]);
+std::sort(xs.begin(), xs.end());
+xs.erase(std::unique(xs.begin(), xs.end()), xs.end());
+for (int i = 1; i <= n; i++)
+    a[i] = std::lower_bound(xs.begin(), xs.end(), a[i]) - xs.begin() + 1;
+\end{lstlisting}
+
+需要还原原值时，直接取 \texttt{xs[a[i] - 1]} 即可；若有多个数组共用同一映射，则只建一次 \texttt{xs}。

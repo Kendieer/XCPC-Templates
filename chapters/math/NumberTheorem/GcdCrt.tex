@@ -1,0 +1,52 @@
+\section{拓展欧几里得算法（exgcd）}
+
+\verb|exgcd(a,b,x,y)| 求 $ax+by=\gcd(a,b)$ 的一组整数解并返回 $\gcd(a,b)$，解写入 $x,y$；模板参数可换为 \texttt{\_\_int128} 以处理大数。
+
+\begin{lstlisting}
+template <typename T = long long>
+T exgcd(T a, T b, T &x, T &y) {
+    if (b == 0) return x = 1, y = 0, a;
+    T g = exgcd(b, a % b, x, y);
+    std::swap(x,y);
+    y -= a / b * x;
+    return g;
+}
+\end{lstlisting}
+
+\section{中国剩余定理及其拓展（CRT \& exCRT）}
+
+前置模板：\textbf{\texttt{拓展欧几里得算法}}。
+
+\verb|crt(n,m,p)| 求满足 $x\equiv p_i\pmod{m_i}$ 的最小非负整数解，要求 $m_i$ 两两互质；\verb|excrt(n,m,p)| 用于 $m_i$ 不互质的情形，无解时返回 $-1$。$m$ 为模数数组、$p$ 为余数数组，内部用 \texttt{\_\_int128} 防止乘积溢出。
+
+\begin{lstlisting}
+using i128 = __int128;
+using i64 = long long;
+template<typename T = long long>
+T crt(int n,const std::vector<T> &m,const std::vector<T> &p) { // x%m=p
+    i128 LCM = 1, ans = 0;
+    for (int i = 0; i < n; i++) LCM *= m[i];
+    assert(LCM);
+    for (int i = 0; i < n; i++) {
+        i64 cm = LCM / m[i], x, y;
+        exgcd(cm % m[i], m[i], x, y);
+        x = (x % m[i] + m[i]) % m[i];
+        ans += p[i] * cm % LCM * x % LCM;
+        ans %= LCM;
+    }
+    return ans;
+}
+template<typename T>
+T excrt(int n,const std::vector<T> &m,const std::vector<T> &p) {
+    i128 LCM = 1, ans = 0;
+    for (int i = 0; i < n; i++) {
+        i128 x, y, g = exgcd<i128>(LCM, m[i], x, y), c = ((p[i] - ans) % m[i] + m[i]) % m[i];
+        if (c % g) return -1;
+        i128 z = m[i] / g;
+        x = (x * c / g % z + z) % z; // x0
+        ans += x * LCM;
+        LCM *= z;
+    }
+    return ans;
+}
+\end{lstlisting}

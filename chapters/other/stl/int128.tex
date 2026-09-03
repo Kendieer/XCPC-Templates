@@ -1,0 +1,37 @@
+\subsection{int128}
+
+\verb|i128|：$\_\_int128$ 的别名，支持四则、比较与取模；本段在 \texttt{std} 中补上 \verb|to_string|、\verb|stoi128|（十进制串转值，可含负号）及流式 IO，故可对 \verb|i128| 直接 \texttt{cin}/\texttt{cout}。
+
+\begin{lstlisting}
+#include <bits/stdc++.h>
+using i128 = __int128;
+namespace std {
+    string to_string(i128 x) {
+        if (x == 0) return "0";
+        string s;bool sign = x < 0;
+        if (sign) x = -x;
+        while (x) s += x % 10 + '0', x /= 10;
+        if (sign) s += "-";
+        reverse(s.begin(), s.end());
+        return s;
+    }
+    i128 stoi128(const string &str){
+        i128 x = 0;bool sign = 0;
+        for(int i(0);i<str.size();i++)
+            if (str[i] == '-') sign = 1;
+            else x*=10,x+=str[i]-'0';
+        return sign?-x:x;
+    }
+    i128 abs(const i128 x){return x < 0 ? -x : x;}
+    istream& operator>>(istream& is,i128 &x){
+        std::string s;
+        is >> s,x = stoi128(s);
+        return is;
+    }
+    ostream& operator<<(ostream& os,const i128 x){
+        if (x == 0) return os << 0;
+        os << to_string(x);
+        return os;
+    }
+}
+\end{lstlisting}

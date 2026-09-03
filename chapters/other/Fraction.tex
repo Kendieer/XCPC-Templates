@@ -1,0 +1,86 @@
+\section{分数}
+
+\verb|Fraction(P,Q)|：有理数 $P/Q$，构造即约分到最简并记录符号；支持四则运算、比较（\verb|<=>|，需 \texttt{C++20}）与流式 IO。每次运算后约简，复杂度 $\mathcal{O}(\log |P|)$。
+
+\begin{lstlisting}
+struct Fraction{
+    long long p=1,q=1;
+    int sign = 1;
+    Fraction(long long P=0,long long Q=1){
+        int s = 1;
+        if (Q < 0) s = -1,Q = -Q;
+        if (P) s *= P/std::abs(P),p=std::abs(P);
+        else p = 0,s = 1;
+        sign = s,q = Q;
+        update();
+    }
+    void update(){
+        assert(q != 0);
+        if (!p) sign = 1; // 零值统一为正号，避免出现 -0（如 0 * 负数的结果为 0 时符号残留）
+        long long cd = std::gcd(p,q);
+        p /= cd,q /= cd;
+    }
+    void common(long long divisor){
+        long long times = divisor / std::gcd(divisor,q);
+        p *= times,q *= times;
+    }
+    void common(Fraction &f){
+        common(f.q);
+    }
+    friend std::ostream& operator<<(std::ostream &os,Fraction f){
+        if (f.sign < 0) os << '-';
+        if (f.q != 1) os << f.p << "/" << f.q;
+        else os << f.p;
+        return os;
+    }
+    Fraction& operator+=(Fraction y){
+        common(y),y.common(*this);
+        p *= sign,p += y.p * y.sign;
+        if (p) sign = p / std::abs(p),p = std::abs(p);
+        else p = 0,sign = 1;
+        update();
+        return *this;
+    }
+    friend Fraction operator+(Fraction x,Fraction y){
+        Fraction ans = x;
+        return ans += y;
+    }
+    Fraction& operator-=(Fraction y){
+        y.sign *= -1;
+        this->operator+=(y);
+        return *this;
+    }
+    friend Fraction operator-(Fraction x,Fraction y){
+        Fraction ans = x;
+        return ans -= y;
+    }
+    Fraction& operator*=(Fraction y){
+        p *= y.p,q *= y.q;
+        sign *= y.sign;
+        update();
+        return *this;
+    }
+    friend Fraction operator*(Fraction x,Fraction y){
+        Fraction ans = x;
+        return ans *= y;
+    }
+    Fraction& operator/=(Fraction y){
+        std::swap(y.p,y.q);
+        return this->operator*=(y);
+    }
+    friend Fraction operator/(Fraction x,Fraction y){
+        Fraction ans = x;
+        return ans /= y;
+    }
+    // require C++20
+    friend auto operator<=>(Fraction x,Fraction y){
+        x.common(y),y.common(x);
+        return x.p * x.sign <=> y.p * y.sign;
+    }
+    bool operator==(Fraction b) const {
+        Fraction a = *this;
+        a.update(),b.update();
+        return (a.sign == b.sign && a.p == b.p && a.q == b.q);
+    }
+};
+\end{lstlisting}

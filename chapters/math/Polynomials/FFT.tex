@@ -1,0 +1,55 @@
+\section{快速傅里叶变换(FFT)}
+
+需要配合 \texttt{Complex} 类使用。
+
+计算两个整数系数多项式 $A,B$ 的卷积（多项式乘法），复杂度 $\mathcal{O}(n\log n)$。
+
+\texttt{work(A,B)} 返回 $A\cdot B$ 的系数向量（类型 \texttt{long long}），长度为 $|A|+|B|-1$；对外只需调用 \texttt{work}。
+
+注意：基于 \texttt{double}，单个系数绝对值小于约 $2^{53}$ 时结果才精确，多次卷积还会累积浮点误差；需取模运算时改用 NTT。
+
+\begin{lstlisting}
+namespace FFT{
+    using Comp = Complex<double>;
+    using Poly = std::vector<Comp>;
+    using i64 = long long;
+
+    std::vector<int> revi;
+    const double PI = std::acos(-1);
+    inline void FFT(const int len,Poly& arr,const short sign){
+        for (int i = 0;i < len;i ++)
+            if (i < revi[i]) std::swap(arr[i],arr[revi[i]]);
+        for (int p = 2;p <= len;p <<= 1){
+            int mid = p >> 1;
+            Comp Wn(std::cos(PI/mid),sign*std::sin(PI/mid));
+            for (int l = 0;l < len;l += p){
+                Comp w(1),tmp;
+                for (int i = l,j = 0;j < mid;i ++,j ++,w *= Wn){
+                    tmp = arr[i+mid] * w;
+                    arr[i+mid] = arr[i] - tmp;
+                    arr[i] += tmp;
+                }
+            }
+        }
+    }
+    std::vector<i64> work(const std::vector<i64>& A,const std::vector<i64>& B){
+        int limit = 1,limBit = 0;
+        while (limit <= (A.size() + B.size())) limit <<= 1,limBit ++;
+        // 蝴蝶变换
+        revi.resize(limit);
+        for (int i = 1;i < limit;i ++)
+            revi[i] = (revi[i>>1]>>1) | ((i&1)<<(limBit-1));
+        Poly poly(limit);
+        for (int i = 0;i < A.size();i ++) poly[i].real = A[i];
+        for (int i = 0;i < B.size();i ++) poly[i].imag = B[i];
+        FFT(limit,poly,1);
+        for (int i = 0;i < limit;i ++) poly[i] *= poly[i];
+        FFT(limit,poly,-1);
+        std::vector<i64> ans(A.size()+B.size()-1);
+        for (int i = 0;i < ans.size();i++) ans[i] = std::round(poly[i].imag/2/limit);
+        return ans;
+    }
+}
+using namespace FFT;
+\end{lstlisting}
+

@@ -1,0 +1,154 @@
+\section{高斯消元}
+
+\subsection{求解线性方程组}
+
+\texttt{Gauss::work(e)} 求解线性方程组：传入 $n$ 行 $n+1$ 列的增广矩阵 \texttt{e}（最后一列为常数项），函数会修改该矩阵。
+
+返回 \texttt{0} 表示有唯一解，此时 \texttt{e[i][n]} 即为 $x_i$；\texttt{1} 表示无穷多解；\texttt{-1} 表示无解。
+
+\begin{lstlisting}
+namespace Gauss{
+    using f64 = long double;
+    using std::vector;
+    constexpr f64 eps = 1E-6;
+    int work(vector<vector<f64>> &e){
+        assert(e.size()+1 == e[0].size());
+        int n = e.size(),m = 0;
+        for (int i = 0;i < n;i ++){
+            int mx = m;
+            for (int j = m+1;j < n;j ++){
+                if (fabsl(e[j][i]) > fabsl(e[mx][i])) mx = j;
+            }
+            if (fabsl(e[mx][i]) <= eps) continue;
+            else swap(e[mx],e[m]);
+            f64 d = 1 / e[m][i];
+            for (int j = 0;j <= n;j ++) e[m][j] *= d;
+            assert(fabsl(e[m][i]-1) <= eps);
+            for (int j = 0;j < n;j ++) {
+                if (j == m || fabsl(e[j][i]) <= eps) continue;
+                f64 k = e[j][i];
+                for (int p = 0;p <= n;p ++){
+                    e[j][p] -= k * e[m][p];
+                }
+            }
+            m++;
+        }
+        if (m == n) return 0;
+        else {
+            while(m < n){
+                if (fabsl(e[m++][n]) > eps) return -1;
+            }
+            return 1;
+        }
+    }
+};
+\end{lstlisting}
+
+\subsection{计算行列式}
+
+\texttt{Guass::det(R)} 求 $n$ 阶方阵 $R$ 的行列式并返回；取模版对模数无素数性要求，浮点版 $O(n^3)$ 且需注意数值误差。需要取模类 \texttt{ModInt}（\texttt{Z}）。
+
+\begin{lstlisting}
+namespace Guass {
+    using MInt = Z;
+    using std::vector;
+    MInt det(vector<vector<MInt>> R){
+        const int n = R.size();
+        MInt w = 1;
+        for (int i = 0;i < n;i++){
+            assert(R[i].size() == n);
+            for (int j = i + 1;j < n;j++){
+                while (R[i][i] != 0) {
+                    int div = R[j][i]() / R[i][i]();
+                    for (int k = 0;k < n;k++) R[j][k] -= R[i][k] * div;
+                    swap(R[j],R[i]);
+                    w = -w;
+                }
+                swap(R[i],R[j]);
+                w = -w;
+            }
+        }
+        MInt ans = 1;
+        for (int i = 0;i < n;i++) ans *= R[i][i];
+        return ans * w;
+    }
+    constexpr double eps = 1e-8;
+    double det(vector<vector<double>> R){
+        const int n = R.size();
+        double w = 1;
+        for (int i = 0;i < n;i++){
+            assert(R[i].size() == n);
+            for (int j = i+1;j < n;j++){
+                if (abs(R[j][i]) > abs(R[i][i])) {
+                    swap(R[i],R[j]);
+                    w = -w;
+                }
+            }
+            if (abs(R[i][i]) <= eps) return 0;
+            double d = R[i][i];
+            w *= d;
+            for (int j = i;j < n;j++) R[i][j] /= d;
+            for (int j = i+1;j < n;j++){
+                if (abs(R[i][i]) <= eps) return 0;
+                double t = R[j][i];
+                for (int k = i;k < n;k++){
+                    R[j][k] -= t * R[i][k];
+                }
+            }
+        }
+        double ans = 1;
+        for (int i = 0;i < n;i++) ans *= R[i][i];
+        return ans * w;
+    }
+};
+\end{lstlisting}
+
+\subsection{求矩阵逆}
+
+需要取模类 \texttt{ModInt}（\texttt{Z}）。
+
+\texttt{Guass::inverse(R)} 求方阵 \texttt{R} 的逆矩阵并返回，不可逆时返回空 \texttt{vector}。
+
+\begin{lstlisting}
+namespace Guass {
+    using MInt = Z;
+    using std::vector;
+    vector<vector<MInt>> inverse(const vector<vector<MInt>>& R){
+        const int n = R.size();
+        vector<vector<MInt>> A(n,vector<MInt>(2*n));
+        for (int i = 0;i < n;i++){
+            assert(R[i].size() == n);
+            for (int j = 0;j < n;j++){
+                A[i][j] = R[i][j];
+            }
+            A[i][i+n] = 1;
+        }
+        vector<vector<MInt>> I;
+        for (int i = 0;i < n;i++){
+            for (int j = i;j < n;j++){
+                if (A[j][i] != 0) {
+                    swap(A[i],A[j]);
+                    break;
+                }
+            }
+            if (A[i][i] == 0) return I;
+            MInt inv = 1 / A[i][i];
+            for (int k = 0;k < 2*n;k++) A[i][k] *= inv;
+            for (int j = 0;j < n;j++){
+                if (i == j) continue;
+                MInt x = A[j][i];
+                for (int k = 0;k < 2*n;k++){
+                    A[j][k] -= A[i][k] * x;
+                }
+            }
+        }
+        I.assign(n,vector<MInt>(n));
+        for (int i = 0;i < n;i++){
+            for (int j = 0;j < n;j++){
+                I[i][j] = A[i][j+n];
+            }
+        }
+        return I;
+    }
+};
+\end{lstlisting}

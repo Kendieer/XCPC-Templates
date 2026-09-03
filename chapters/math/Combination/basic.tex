@@ -1,0 +1,93 @@
+\section{组合数学基础}
+
+\subsection{排列组合基础}
+
+需要 \textbf{\texttt{ModInt}} 模板。
+
+组合计数取模类，\texttt{MOD} 需为素数：\texttt{C(n,m)} 返回 $\binom{n}{m}\bmod MOD$，$n,m$ 可任意大（自动 Lucas 分解）。
+
+\texttt{A(n,m)}、\texttt{fact(n)}、\texttt{inv(n)} 分别为排列数 $n!/(n-m)!$、$n!$、$(n!)^{-1}$，一般要求 $n<MOD$（更大时返回模意义下结果）；首次查询按需预计算阶乘，单次 $\mathcal{O}(1)$。
+
+\begin{lstlisting}
+template <int MOD>
+struct Combination{
+    using Z = ModInt<MOD>;
+private:
+    int siz = 0;
+    std::vector<Z> _fact,_inv;
+    void expend(int size){
+        if (siz >= size) return;
+        _fact.resize(size),_inv.resize(size);
+        for (int i = siz;i < size;i++) _fact[i] = _fact[i-1] * i;
+        _inv[size-1] = 1 / _fact[size-1];
+        for (int i = size - 2;i >= siz;i--) _inv[i] = _inv[i+1] * (i+1);
+        siz = size;
+    }
+    void check(int size){
+        if (siz >= size) return;
+        int n = siz;
+        while(n < size) n <<= 1;
+        n = std::min<unsigned int>(n,MOD);
+        expend(n);
+    }
+public:
+    Combination():siz(1),_fact(1,1),_inv(1,1){}
+    Z fact(int n){
+        if (n < 0) return inv(-n);
+        if (n >= MOD) return 0;
+        check(n+1);
+        return _fact[n];
+    }
+    Z inv(int n){
+        if (n < 0) return fact(-n);
+        if (n >= MOD) return 0;
+        check(n+1);
+        return _inv[n];
+    }
+    Z A(int n,int m){
+        if (n < 0 || m < 0 || n < m) return 0;
+        if (m >= MOD) return 0;
+        if (n < MOD) {
+            check(n+1);
+            return _fact[n]*_inv[n-m];
+        }
+        check(m+1);
+        return C(n,m)*_fact[m];
+    }
+    Z C(int n,int m){
+        if (n < 0 || m < 0 || n < m) return 0;
+        if (n < MOD && m < MOD) {
+            check(n+1);
+            return _fact[n] * _inv[m] * _inv[n - m];
+        } else return C(n/MOD,m/MOD)*C(n%MOD,m%MOD);
+    }
+};
+\end{lstlisting}
+
+\subsection{卡特兰数}
+
+通常情况下有四种形式：
+
+\begin{enumerate}
+    \item $$C_n = \begin{cases}
+        1 & ,n=0\\
+        \sum_{i=0}^{n-1} C_iC_{n-i-1}&,n > 0\\
+    \end{cases}$$
+    \item $$C_n=\frac{1}{n+1}\binom{2n}{n}=\frac{(2n)!}{n!(n+1)!}$$
+    \item $$C_n=\binom{2n}{n} - \binom{2n}{n+1}$$
+    \item $$C_n=\frac{4n-2}{n+1}C_{n-1},n > 0,C_0 = 1$$
+\end{enumerate}
+
+代码为片段：\texttt{Z} 为全局取模类型，\texttt{C(n,m)} 为组合数查询函数（如 \texttt{Combination} 对象的 \texttt{C} 成员）。
+
+\begin{lstlisting}
+Z Catalan(int n){
+    if (n < 0) return 0;
+    if (n == 0) return 1;
+    return C(2*n,n) - C(2*n,n-1);
+}
+\end{lstlisting}
+
+\subsection{卢卡斯定理}
+
+对于素数 $p$，有 $\binom{n}{k}\equiv \binom{\lfloor n/p\rfloor}{\lfloor k/p\rfloor}\binom{n\bmod p}{k\bmod p}\pmod p$。其中，当 $n<k$ 时，二项式系数 $\dbinom{n}{k}$ 规定为 $0$。

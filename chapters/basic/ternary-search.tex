@@ -1,0 +1,36 @@
+\section{三分}
+
+三分查找求单峰函数（先增后减 / 先减后增）的极值。搜索区间端点为 \texttt{l,r}，函数为 \texttt{f}。实数域约需 $\mathcal{O}(\log_{3/2}n)$ 轮（$n$ 为区间长度），但下例固定迭代 $100$ 次已足够。
+
+\subsection{实数版本}
+
+\begin{lstlisting}
+// 求凹函数（先增后减）最大值，f 在 [l,r] 单峰
+double l = 0, r = 1e9;
+for (int it = 0; it < 100; it++) {
+    double m1 = (l * 2 + r) / 3;
+    double m2 = (l + r * 2) / 3;
+    if (f(m1) < f(m2)) l = m1;
+    else r = m2;
+}
+double ans = f((l + r) / 2);
+\end{lstlisting}
+
+求最小值时对 $-f$ 求最大即可。实数域迭代 $100$ 次能达到 \texttt{double} 精度。
+
+\subsection{整数版本}
+
+整数定义域收敛不到单点，故区间缩小到 $\le 3$ 时暴力枚举区间内所有点取最优。
+
+\begin{lstlisting}
+// 求凹函数（先增后减）最大值，整数域 [l,r]
+int l = 0, r = n;
+while (r - l > 3) {
+    int m1 = l + (r - l) / 3;
+    int m2 = r - (r - l) / 3;
+    if (f(m1) < f(m2)) l = m1;
+    else r = m2;
+}
+int ans = f(l);
+for (int i = l + 1; i <= r; i++) ans = std::max(ans, f(i));
+\end{lstlisting}

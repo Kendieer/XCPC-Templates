@@ -1,0 +1,52 @@
+\section{BSGS 及其拓展}
+
+\subsection{BSGS 算法}
+
+\verb|BSGS(a,b,p)| 求 $a^x\equiv b\pmod{p}$ 的最小非负整数解，无解返回 $-1$，复杂度 $\mathcal{O}(\sqrt{p})$。要求 $\gcd(a,p)=1$（$p$ 为素数时自然满足）；$a,p$ 不互质或 $p$ 为合数时改用 \verb|exBSGS|。
+
+\begin{lstlisting}
+using i64 = long long;
+i64 BSGS(i64 a,i64 b,const i64& p){ // a ^ x = b \pmod p
+    a %= p,b %= p;
+    if (b == 1) return 0;
+    const i64 t = sqrt(p);
+    std::unordered_map<long long,long long> mp;
+    i64 ap = 1;
+    for (i64 i = 0,res = b;i < t;i++){
+        mp[res] = i;
+        res = (i64)((__int128)res * a % p);
+        ap = (i64)((__int128)ap * a % p);
+    }
+    for (i64 i = t,v = ap;i < p + t;i += t,v = (i64)((__int128)v * ap % p)){
+        if (mp.contains(v)) {
+            return i - mp[v];
+        }
+    }
+    return -1;
+}
+\end{lstlisting}
+
+\subsection{exBSGS 算法}
+
+\verb|exBSGS(a,b,p)| 求 $a^x\equiv b\pmod{p}$ 的最小非负整数解，无解返回 $-1$，复杂度约为 $\mathcal{O}(\sqrt p)$。适用于 $a,p$ 不互质、$p$ 为合数等 \verb|BSGS| 失效的情形。
+
+前置模板：\textbf{\texttt{拓展欧几里得算法}} 与上式 \textbf{\texttt{BSGS}}（递归基直接调用）。
+
+\begin{lstlisting}
+using i64 = long long;
+i64 exBSGS(i64 a,i64 b,const i64& p){
+    a %= p,b %= p;
+    if (b % p == 1 % p) return 0;
+    i64 d = std::gcd(a,p);
+    if (b % d != 0) return -1;
+    if (d > 1) {
+        i64 x,y;
+        i64 np = p / d;
+        exgcd(a / d,np,x,y);
+        i64 nb = (i64)(((__int128)(b / d) * x % np + np) % np);
+        auto ans = exBSGS(a,nb,np);
+        return ans == -1 ? -1 : ans + 1;
+    }
+    return BSGS(a,b,p);
+}
+\end{lstlisting}

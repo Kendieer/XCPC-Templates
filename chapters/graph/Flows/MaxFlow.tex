@@ -1,0 +1,289 @@
+\subsection{网络最大流}
+
+\subsubsection{Edmonds-Karp 算法}
+
+每次用 BFS 找一条增广路并增广，复杂度 $\mathcal{O}(n m^2)$。
+
+\begin{lstlisting}
+using i64 = long long;
+constexpr i64 INF = 1e18;
+struct EdmondsKarp {
+    int n;
+    struct Edge {
+        int to = 0,nxt = 0;
+        i64 f = 0,c = 0;
+    };
+    std::vector<int> head,fr;
+    std::vector<Edge> edge;
+    EdmondsKarp(int _n):n(_n),head(n+1),edge(2),fr(n+1){}
+    void addEdge(int u,int v,i64 f,i64 c){
+        edge.push_back({v,head[u],f,c});
+        head[u] = edge.size() - 1;
+    }
+    void connect(int u,int v,i64 w){
+        addEdge(u,v,w,w);
+        addEdge(v,u,0,w);
+    }
+    i64 work(int s,int t){
+        i64 ans = 0;
+        while (1) {
+            std::queue<int> que;
+            std::fill(fr.begin(),fr.end(),-1);
+            que.push(s);
+            fr[s] = 0;
+            while (!que.empty()){
+                int u = que.front();
+                que.pop();
+                for (int e = head[u];e;e = edge[e].nxt){
+                    int v = edge[e].to;
+                    i64 w = edge[e].f;
+                    if (fr[v] != -1 || w == 0) continue;
+                    fr[v] = e^1;
+                    que.push(v);
+                }
+            }
+            if (fr[t] == -1) break;
+            i64 mn = INF;
+            for (int u = t;u != s;u = edge[fr[u]].to){
+                mn = std::min(mn,edge[fr[u] ^ 1].f);
+            }
+            for (int u = t;u != s;u = edge[fr[u]].to){
+                edge[fr[u]].f += mn;
+                edge[fr[u] ^ 1].f -= mn;
+            }
+            ans += mn;
+        }
+        return ans;
+    }
+};
+\end{lstlisting}
+
+\subsubsection{Dinic 算法}
+
+分层图 + 多路增广，复杂度 $\mathcal{O}(n^2 m)$。对于容量均为 $1$ 的图总复杂度为 $O(m\cdot \min(m^{\frac{1}{2}},n^{\frac{2}{3}}))$；二分图最大匹配（无权）为 $O(n^{\frac{1}{2}}\cdot m)$。
+
+\begin{lstlisting}
+using i64 = long long;
+constexpr i64 INF = 1e18;
+struct Dinic {
+    int n;
+    std::vector<int> dis,now,head;
+    struct Edge {
+        int to = 0,nxt = 0;
+        i64 f = 0,c = 0;
+    };
+    std::vector<Edge> edge;
+    Dinic(int _n):n(_n),dis(_n+1),now(n+1),head(n+1),edge(2) {}
+    void addEdge(int u,int v,i64 f,i64 c){
+        edge.push_back({v,head[u],f,c});
+        head[u] = edge.size() - 1;
+    }
+    void connect(int u,int v,i64 w){
+        addEdge(u,v,w,w);
+        addEdge(v,u,0,w);
+    }
+    bool level_graph(int s,int t){
+        std::queue<int> que;
+        std::fill(dis.begin(),dis.end(),-1);
+        dis[s] = 0,que.push(s);
+        now[s] = head[s];
+        while (!que.empty()) {
+            auto u = que.front();
+            que.pop();
+            for (int e = head[u];e;e = edge[e].nxt){
+                int v = edge[e].to;
+                i64 w = edge[e].f;
+                if (dis[v] != -1 || w == 0) continue;
+                dis[v] = dis[u] + 1;
+                now[v] = head[v];
+                que.push(v);
+                if (v == t) return 1;
+            }
+        }
+        return 0;
+    }
+    i64 blocking_flows(int u,i64 cap,const int& t){
+        if (u == t) return cap;
+        i64 sum = 0;
+        for (int e = now[u];e;e = edge[e].nxt){
+            int v = edge[e].to;
+            i64 w = edge[e].f;
+            if (!cap) break;
+            now[u] = e;
+            if (dis[v] != dis[u] + 1 || w <= 0) continue;
+            i64 k = blocking_flows(v,std::min(cap,w),t);
+            if (!k) dis[v] = -1;
+            edge[e].f -= k,edge[e^1].f += k;
+            sum += k,cap -= k;
+        }
+        return sum;
+    }
+    i64 work(int s,int t){
+        i64 sum = 0;
+        while (level_graph(s,t)){
+            sum += blocking_flows(s,INF,t);
+        }
+        return sum;
+    }
+};
+\end{lstlisting}
+
+\subsubsection{预留推进网络最大流(HLPP)}
+
+在稠密图或 Dinic 容易退化的网络中计算最大流；使用最高标号选择、Gap 优化与全局重标号。
+
+常用上界记作 $O(V^2\sqrt E)$，空间 $O(V+E)$。
+
+\begin{lstlisting}
+struct HLPP {
+    using i64 = long long;
+    struct Edge {
+        int to;
+        i64 c;
+        int rev;
+        Edge(int to, i64 c, int rev) : to(to), c(c), rev(rev) {}
+    };
+    int n, s, t;
+    int maxh, maxgaph, workcnt;
+    std::vector<std::vector<Edge>> vec;
+    std::vector<i64> ov;
+    std::vector<int> h, cur;
+    std::vector<int> ovList, ovNxt;
+    std::vector<int> gap, gapPrv, gapNxt;
+
+    HLPP(int n)
+        : n(n), maxh(0), maxgaph(0), workcnt(0), vec(n + 1),
+            ov(n + 1), h(n + 1), cur(n + 1), ovList(n + 1, -1),
+            ovNxt(n + 1, -1), gap(n + 1, -1), gapPrv(n + 1, -1),
+            gapNxt(n + 1, -1) {}
+
+    void connect(int u, int v, i64 c) {
+        vec[u].push_back(Edge(v, c, vec[v].size()));
+        vec[v].push_back(Edge(u, 0, vec[u].size() - 1));
+    }
+
+    i64 work(int s_, int t_) {
+        s = s_, t = t_;
+        globalRelabel();
+        for (auto &e : vec[s]) {
+            if (e.c) pushFlow(s, e, e.c);
+        }
+        for (; maxh >= 0; --maxh) {
+            while (~ovList[maxh]) {
+                int x = ovList[maxh];
+                ovList[maxh] = ovNxt[x];
+                discharge(x);
+                if (workcnt > (n << 2))
+                    globalRelabel();
+            }
+        }
+        return ov[t];
+    }
+
+private:
+    void discharge(int x) {
+        int nh = n, sz = vec[x].size();
+        for (int i = cur[x]; i < sz; ++i) {
+            auto &e = vec[x][i];
+            if (e.c > 0) {
+                if (h[x] == h[e.to] + 1) {
+                    pushFlow(x, e, std::min(ov[x], e.c));
+                    if (ov[x] == 0) {
+                        cur[x] = i;
+                        return;
+                    }
+                } else {
+                    nh = std::min(nh, h[e.to] + 1);
+                }
+            }
+        }
+        for (int i = 0; i < cur[x]; ++i) {
+            auto &e = vec[x][i];
+            if (e.c > 0)
+                nh = std::min(nh, h[e.to] + 1);
+        }
+        cur[x] = 0;
+        ++workcnt;
+        int oldh = h[x], head = gap[oldh];
+        if (~gapNxt[head]) {
+            setHeight(x, nh);
+        } else {
+            for (int i = oldh; i <= maxgaph; ++i) {
+                for (int j = gap[i]; ~j; ) {
+                    int nxt = gapNxt[j];
+                    h[j] = n;
+                    gapPrv[j] = gapNxt[j] = -1;
+                    j = nxt;
+                }
+                gap[i] = -1;
+            }
+            maxgaph = oldh - 1;
+        }
+    }
+
+    void globalRelabel() {
+        workcnt = maxh = maxgaph = 0;
+        std::fill(h.begin(), h.end(), n);
+        h[t] = 0;
+        std::fill(gapPrv.begin(), gapPrv.end(), -1);
+        std::fill(gapNxt.begin(), gapNxt.end(), -1);
+        std::fill(gap.begin(), gap.end(), -1);
+        std::fill(ovList.begin(), ovList.end(), -1);
+        std::fill(cur.begin(), cur.end(), 0);
+        std::queue<int> q;
+        q.push(t);
+        while (!q.empty()) {
+            int x = q.front();
+            q.pop();
+            for (auto &e : vec[x]) {
+                if (h[e.to] == n &&
+                    e.to != s &&
+                    vec[e.to][e.rev].c > 0) {
+                    setHeight(e.to, h[x] + 1);
+                    q.push(e.to);
+                }
+            }
+        }
+    }
+
+    void setHeight(int x, int newh) {
+        if (~gapPrv[x]) {
+            if (gapPrv[x] == x) {
+                gap[h[x]] = gapNxt[x];
+                if (~gapNxt[x])
+                    gapPrv[gapNxt[x]] = gapNxt[x];
+            } else {
+                gapNxt[gapPrv[x]] = gapNxt[x];
+                if (~gapNxt[x])
+                    gapPrv[gapNxt[x]] = gapPrv[x];
+            }
+            gapPrv[x] = gapNxt[x] = -1;
+        }
+        h[x] = newh;
+        if (h[x] >= n)
+            return;
+        maxgaph = std::max(maxgaph, h[x]);
+        if (ov[x] > 0) {
+            maxh = std::max(maxh, h[x]);
+            ovNxt[x] = ovList[h[x]];
+            ovList[h[x]] = x;
+        }
+        gapNxt[x] = gap[h[x]];
+        if (~gapNxt[x])
+            gapPrv[gapNxt[x]] = x;
+        gap[h[x]] = gapPrv[x] = x;
+    }
+
+    void pushFlow(int from, Edge &e, i64 flow) {
+        if (!ov[e.to] && e.to != t && h[e.to] < n) {
+            maxh = std::max(maxh, h[e.to]);
+            ovNxt[e.to] = ovList[h[e.to]];
+            ovList[h[e.to]] = e.to;
+        }
+        e.c -= flow;
+        vec[e.to][e.rev].c += flow;
+        ov[from] -= flow;
+        ov[e.to] += flow;
+    }
+};
+\end{lstlisting}

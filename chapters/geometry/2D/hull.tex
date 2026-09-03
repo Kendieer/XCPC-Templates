@@ -1,0 +1,30 @@
+\subsection{凸包}
+
+前置模板：\textbf{\texttt{点}}。\verb|Hull::Andrew(points)|：对点集求凸包，返回 \texttt{(hi,lo)}，\texttt{hi}、\texttt{lo} 分别为上、下凸壳从左到右的顶点链，均只含凸包顶点（重复点与共线点已剔除）。最左、最右 $x$ 各恰有一个点时两链共享两端点；否则（存在竖直边）端点分属该竖边的上、下端。拼出凸包：\texttt{lo} 正向接反向 \texttt{hi} 并去掉重复端点。复杂度 $\mathcal{O}(n\log n)$。
+
+\begin{lstlisting}
+namespace Hull{
+    template<typename T>
+    auto Andrew(std::vector<Point<T>> points,int s = 0){
+        using P = Point<T>;
+        const int n = points.size() - 1;
+        std::vector<P> hi,lo;
+        std::sort(points.begin() + s,points.end());
+        for (int i = s;i <= n;i ++){
+            P p = points[i];
+            while (hi.size() > 1 && P::cross(hi.back() - hi[hi.size() - 2],p - hi.back()) >= 0){
+                hi.pop_back();
+            }
+            if (hi.size() && hi.back().x == p.x){
+                hi.pop_back();
+            }
+            hi.push_back(p);
+            while (lo.size() > 1 && P::cross(lo.back() - lo[lo.size() - 2],p - lo.back()) <= 0){
+                lo.pop_back();
+            }
+            if (!lo.size() || lo.back().x < p.x) lo.push_back(p);
+        }
+        return std::make_pair(hi,lo);// high hull and low hull
+    }
+};
+\end{lstlisting}

@@ -1,0 +1,30 @@
+\section{格雷码}
+
+$n$ 的（反射）格雷码为 $g=n\oplus(n\gg1)$，它把 $0..2^k-1$ 一一映到自身，且相邻两个编码恰好有一位不同，首尾也仅一位不同（$k$ 维超立方体的一条哈密顿回路）。适合需要“增量式”枚举子集的问题：按格雷码顺序遍历所有子集，每步只需加入或移除一个元素，就能在 $\mathcal{O}(1)$ 内维护当前集合的聚合信息，避免每次重新计算。
+
+\verb|toGray(n)| 返回 $n$ 的格雷码；\verb|fromGray(g)| 还原为原数（互为逆映射）。\verb|toGray| 为 $\mathcal{O}(1)$，\verb|fromGray| 需按位宽做若干次异或。
+
+\begin{lstlisting}
+template<typename T>
+T toGray(T n){
+    return n ^ (n >> 1);
+}
+template<typename T>
+T fromGray(T g){
+    T n = g;
+    for (T x = g >> 1; x; x >>= 1) n ^= x;
+    return n;
+}
+\end{lstlisting}
+
+\subsection{按格雷码序枚举子集}
+
+\begin{lstlisting}
+int s = 0;
+for (int i = 1; i < (1 << k); i++){
+    int c = __builtin_ctz((unsigned)i);
+    s ^= 1 << c;
+}
+\end{lstlisting}
+
+$s$ 依次取遍 $\{0..k-1\}$ 的全部子集，且相邻两步的 $s$ 只差一个元素：第 $i$（$1$ 起始）步翻转的元素下标即 $i$ 的二进制最低位位置（\verb|__builtin_ctz(i)|）。想增量维护答案时，先判断第 $c$ 位翻转后是加入还是移除，再据此 $\mathcal{O}(1)$ 更新。

@@ -1,0 +1,28 @@
+\subsection{简单多边形}
+
+\subsubsection{判断点是否在多边形内}
+
+时间复杂度为 $\mathcal{O}(n)$。
+
+前置模板：\textbf{\texttt{点}}、\textbf{\texttt{线}}。\verb|inPolygon(a,p)|：$a$ 为按边界顺序给出的简单多边形（可凹、不可自交），$p$ 在内部或边界上时返回 \texttt{true}。判定用精确比较，浮点坐标靠近边界可能误判，建议使用整型坐标。
+
+\begin{lstlisting}
+template<typename T = double>
+bool inPolygon(const std::vector<Point<T>>& a,const Point<T>& p) {
+    int n = (int)a.size();
+    bool ans = 0;
+    for (int i = 0, j = n - 1; i < n; j = i++) {
+        if (onSeg(a[i],a[j],p)) return true;
+        if ((a[i].y > p.y) != (a[j].y > p.y)) {
+            Point<T> del1 = a[j] - a[i];
+            Point<T> del2 = p - a[i];
+            T l = del1.y * del2.x;
+            T r = del1.x * del2.y;
+            if ((del1.y > 0 && l < r) || (del1.y < 0 && l > r)) {
+                ans = !ans;
+            }
+        }
+    }
+    return ans;
+}
+\end{lstlisting}

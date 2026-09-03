@@ -1,0 +1,58 @@
+\section{原根}
+
+仅参考，实际可预先处理出常用模数的原根直接使用。
+
+模数 $n$ 存在原根当且仅当 $n\in\{2,4,p^k,2p^k\}$（$p$ 为奇质数）。设 $g$ 为原根，则 $g$ 的阶为 $\varphi(n)$，即最小的 $d$ 使 $g^{d}\equiv 1\pmod{n}$ 恰为 $d=\varphi(n)$；原根共有 $\varphi(\varphi(n))$ 个，且 $g^{k}$ 也为原根当且仅当 $\gcd(k,\varphi(n))=1$。
+
+\verb|getPrimitiveRoot(MOD)| 返回模 $MOD$ 的最小原根，$MOD$ 无原根时返回 $0$。要求 $MOD<2^{31}$（内部以 \texttt{int} 处理中间量）。前置模板：\textbf{\texttt{取模类（全局模数）}} 与 \textbf{\texttt{欧拉函数}}。
+
+\begin{lstlisting}
+bool hasRoot(long long MOD){
+    if (MOD == 2 || MOD == 4) return 1;
+    if (MOD % 2 == 0){
+        MOD >>= 1;
+        if (MOD % 2 == 0) return 0;
+    }
+    if (MOD == 1) return 0;
+    for (long long i = 3;i * i <= MOD;i += 2){
+        if (MOD % i == 0){
+            while (MOD % i == 0) MOD /= i;
+            return MOD == 1;
+        }
+    }
+    return 1;
+}
+int getPrimitiveRoot(long long MOD){
+    if (MOD == 2 || MOD == 4) return MOD - 1;
+    if (!hasRoot(MOD)) return 0;
+    arbModInt::setMod(MOD);
+    long long Phi = getPhi((int)MOD);
+    std::vector<long long> fac;
+    long long t = Phi;
+    for (long long i = 2;i * i <= t;i++){
+        if (t % i == 0){
+            fac.push_back(i);
+            while (t % i == 0) t /= i;
+        }
+    }
+    if (t > 1) fac.push_back(t);
+    for (long long g = 2;g < MOD;g++){
+        if (arbModInt::Pow(g,Phi)() != 1) continue;
+        bool ok = 1;
+        for (const long long& q : fac)
+            if (arbModInt::Pow(g,Phi/q)() == 1){ ok = 0; break; }
+        if (ok) return (int)g;
+    }
+    return 0;
+}
+\end{lstlisting}
+
+常见质数模数的最小原根：
+
+\begin{center}
+\begin{tabular}{l|cccccc}
+$mod$ & $998244353$ & $10^9+7$ & $10^9+9$ & $2147483647$ & $999999937$ & $167772161$ \\
+\hline
+$g$ & $3$ & $5$ & $13$ & $7$ & $11$ & $3$ \\
+\end{tabular}
+\end{center}

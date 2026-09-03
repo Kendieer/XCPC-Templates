@@ -1,0 +1,272 @@
+\subsection{FHQ Treap}
+
+Treap 是一种\textbf{弱平衡}的随机化二叉搜索树，这里给出的是无旋（FHQ）版本。视作平衡多重集使用：元素可重复，$T$ 默认为 \texttt{long long}，其余类型需可比较（小于与判等）。
+
+各操作单次期望复杂度 $\mathcal{O}(\log n)$：\texttt{insert(x)} 插入一个 $x$；\texttt{remove(x)} 删除一个等于 $x$ 的元素（不存在则无事发生）；\texttt{rank(x)} 返回小于 $x$ 的元素个数 $+1$；\texttt{index(k)} 返回第 $k$ 小元素（下标从 1 开始）；\texttt{contains(x)}、\texttt{size()} 分别判断存在性与元素个数。
+
+\subsubsection{普通版本}
+
+\begin{lstlisting}
+std::mt19937 _rnd(std::chrono::high_resolution_clock::now().time_since_epoch().count());
+template<typename T = long long>
+struct FHQTreap {
+    using u32 = unsigned int;
+    using _KV = std::pair<T,u32>;
+    u32 head = 0;
+    std::vector<_KV> key;
+    std::vector<u32> siz;
+    std::vector<std::array<u32,2>> son;
+    FHQTreap(){
+        newNode();
+        _siz = 0;
+    }
+    void insert(const T& x){
+        u32 a,b;
+        split(head,{x,0},a,b);
+        u32 u = newNode();
+        key[u].first = x;
+        siz[u] = 1;
+        head = merge(merge(a,u),b);
+    }
+    void remove(const T& x){
+        u32 a,b,c;
+        split(head,{x,0},a,b);
+        split(b,{x,-1},b,c);
+        if (b == 0) { head = merge(a,c); return; }
+        head = merge(merge(a,merge(son[b][0],son[b][1])),c);
+        delNode(b);
+    }
+    u32 rank(const T& x) const {
+        u32 rk = 0,u = head;
+        while (u) {
+            bool flag = key[u].first < x;
+            if (flag) {
+                rk += siz[son[u][0]] + 1;
+            }
+            u = son[u][flag];
+        }
+        return rk + 1;
+    }
+    bool contains(const T& x) const {
+        u32 rk = 0,u = head;
+        while (u) {
+            bool flag = key[u].first < x;
+            if (!flag && key[u].first == x) {
+                return 1;
+            }
+            u = son[u][flag];
+        }
+        return 0;
+    }
+    const T& index(u32 rank) const {
+        return key[find(rank)].first;
+    }
+    u32 size() const {
+        return _siz;
+    }
+private:
+    u32 _siz = 0;
+    std::vector<u32> del;
+    u32 newNode(){
+        u32 cur = 0;
+        if (del.size()) {
+            cur = del.back();
+            del.pop_back();
+        } else {
+            u32 rx = _rnd();
+            while (rx == 0 || rx == -1) rx = _rnd();
+            cur = key.size();
+            key.emplace_back(std::make_pair(T(),rx));
+            siz.emplace_back(0);
+            son.emplace_back(std::array<u32,2>({0,0}));
+        }
+        _siz++;
+        return cur;
+    }
+    void delNode(u32 i){
+        del.push_back(i);
+        siz[i] = 0;
+        son[i][0] = son[i][1] = 0;
+        _siz--;
+    }
+    void update(u32 i){
+        if (i == 0) return;
+        siz[i] = siz[son[i][0]] + siz[son[i][1]] + 1;
+    }
+    void split(u32 u,const _KV& mid,u32& x,u32& y){
+        if (u == 0) x = y = 0;
+        else {
+            if (mid < key[u]) {
+                y = u;
+                split(son[u][0],mid,x,son[y][0]);
+            } else {
+                x = u;
+                split(son[u][1],mid,son[x][1],y);
+            }
+            update(u);
+        }
+    }
+    u32 merge(u32 a,u32 b){
+        if (a == 0 || b == 0) return a | b;
+        if (key[a].second < key[b].second) {
+            son[a][1] = merge(son[a][1],b);
+            update(a);
+            return a;
+        } else {
+            son[b][0] = merge(a,son[b][0]);
+            update(b);
+            return b;
+        }
+    }
+    u32 find(u32 rk) const {
+        u32 u = head;
+        while (u) {
+            if (siz[son[u][0]] + 1 == rk) return u;
+            if (siz[son[u][0]] + 1 < rk) {
+                rk -= siz[son[u][0]] + 1;
+                u = son[u][1];
+            } else {
+                u = son[u][0];
+            }
+        }
+        return 0;
+    }
+};
+\end{lstlisting}
+
+\subsubsection{可持久化版本}
+
+每个版本是独立不可变的快照，旧版本不受影响。第 $0$ 个版本为初始空树；此后每次调用 \texttt{insert/remove(x,t)} 以第 $t$ 个版本为基础生成并追加一个新版本（其编号等于调用前已有的版本总数），可随时查询或继续修改。
+
+只读操作 \texttt{rank(x,t)}、\texttt{index(k,t)}、\texttt{contains(x,t)} 均作用于第 $t$ 个版本。\texttt{clearVersion()} 令当前最新版本成为新的 0 号版本并丢弃其余历史。单次操作时间与额外空间均期望 $\mathcal{O}(\log n)$。
+
+\begin{lstlisting}
+std::mt19937 _rnd(std::chrono::high_resolution_clock::now().time_since_epoch().count());
+template<typename T = long long>
+struct PersistantFHQTreap {
+    using u32 = unsigned int;
+    using _KV = std::pair<T,u32>;
+    std::vector<_KV> key;
+    std::vector<u32> siz,ver;
+    std::vector<std::array<u32,2>> son;
+    PersistantFHQTreap(){
+        newNode(0);
+        _siz = 0;
+        ver.push_back(0);
+    }
+    u32 copyVersion(u32 t){
+        ver.push_back(ver[t]);
+        return ver.back();
+    }
+    void clearVersion(){
+        ver = {ver.back()};
+    }
+    void insert(const T& x,u32 t){
+        u32 a,b,rt = copyVersion(t);
+        split(rt,{x,0},a,b);
+        u32 u = newNode();
+        key[u].first = x;
+        siz[u] = 1;
+        rt = merge(merge(a,u),b);
+        ver.back() = rt;
+    }
+    void remove(const T& x,u32 t){
+        u32 a,b,c,rt = copyVersion(t);
+        split(rt,{x,0},a,b);
+        split(b,{x,-1},b,c);
+        rt = merge(merge(a,merge(son[b][0],son[b][1])),c);
+        ver.back() = rt;
+    }
+    u32 rank(const T& x,u32 t) const {
+        u32 rk = 0,u = ver[t];
+        while (u) {
+            bool flag = key[u].first < x;
+            if (flag) {
+                rk += siz[son[u][0]] + 1;
+            }
+            u = son[u][flag];
+        }
+        return rk + 1;
+    }
+    bool contains(const T& x,u32 t) const {
+        u32 rk = 0,u = ver[t];
+        while (u) {
+            bool flag = key[u].first < x;
+            if (!flag && key[u].first == x) {
+                return 1;
+            }
+            u = son[u][flag];
+        }
+        return 0;
+    }
+    const T& index(u32 rank,u32 t) const {
+        return key[find(rank,t)].first;
+    }
+private:
+    u32 _siz = 0;
+    u32 newNode(bool tag = 1){
+        u32 cur = 0,rx = 0;
+        while (tag && (rx == 0 || rx == -1)) rx = _rnd();
+        cur = key.size();
+        key.emplace_back(std::make_pair(T(),rx));
+        siz.emplace_back(0);
+        son.emplace_back(std::array<u32,2>({0,0}));
+        _siz++;
+        return cur;
+    }
+    u32 copyNode(u32 i){
+        u32 u = newNode(0);
+        key[u] = key[i];
+        siz[u] = siz[i],son[u] = son[i];
+        return u;
+    }
+    void update(u32 i){
+        if (i == 0) return;
+        siz[i] = siz[son[i][0]] + siz[son[i][1]] + 1;
+    }
+    void split(u32 u,const _KV& mid,u32& x,u32& y){
+        if (u == 0) x = y = 0;
+        else {
+            u32 tmp;
+            if (mid < key[u]) {
+                y = copyNode(u);
+                split(son[u][0],mid,x,tmp);
+                son[y][0] = tmp;
+                update(y);
+            } else {
+                x = copyNode(u);
+                split(son[u][1],mid,tmp,y);
+                son[x][1] = tmp;
+                update(x);
+            }
+        }
+    }
+    u32 merge(u32 a,u32 b){
+        if (a == 0 || b == 0) return a | b;
+        if (key[a].second < key[b].second) {
+            u32 rt = copyNode(a);
+            son[rt][1] = merge(son[rt][1],b);
+            update(rt);
+            return rt;
+        } else {
+            u32 rt = copyNode(b);
+            son[rt][0] = merge(a,son[rt][0]);
+            update(rt);
+            return rt;
+        }
+    }
+    u32 find(u32 rk,u32 t) const {
+        u32 u = ver[t];
+        while (u) {
+            if (siz[son[u][0]] + 1 == rk) return u;
+            if (siz[son[u][0]] + 1 < rk) {
+                rk -= siz[son[u][0]] + 1;
+                u = son[u][1];
+            } else {
+                u = son[u][0];
+            }
+        }
+        return 0;
+    }
+};
+\end{lstlisting}

@@ -1,0 +1,24 @@
+# LaTeX build artifacts
+*.aux
+*.log
+*.out
+*.toc
+*.bbl
+*.blg
+*.nav
+*.snm
+*.vrb
+*.synctex.gz
+*.fdb_latexmk
+*.fls
+_minted/
+
+# per-pass compile logs left in the source tree
+cpl*.log
+
+# root working copy of the compiled book (versioned PDFs live under results/)
+main.pdf
+main.pdf.*
+
+# stray working notes (not part of the book)
+chapters/strings/raw.md

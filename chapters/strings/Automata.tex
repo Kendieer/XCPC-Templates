@@ -1,0 +1,183 @@
+\section{AC 自动机（Aho-Corasick）}
+
+用于多模式串同时匹配：先逐个插入所有模式串，再 \texttt{build()} 建立自动机，之后在文本串上沿转移走一遍即可完成匹配，复杂度 $\mathcal{O}(\sum|\text{模式}|+|\text{文本}|)$。
+
+\texttt{operator>>(s)} 插入一个模式串并返回其终止结点编号；\texttt{fail} 为失配指针、\texttt{in} 为 \texttt{fail} 树入度。精确统计每个模式串出现次数时，把文本串经过的结点计数沿 \texttt{fail} 树按 \texttt{in} 度做拓扑累加即可。
+
+\begin{lstlisting}
+template<int S,int E>
+struct AhoCorasick{
+    AhoCorasick(){
+        nodes.resize(1);
+    }
+    static constexpr int charSiz = E-S+1;
+    struct ACNode{
+        int fa = 0, fail = 0, in = 0;
+        bool built = 0;
+        std::vector<int> nxt = std::vector<int>(charSiz);
+        int& operator[](int i){return nxt[i];}
+    };
+    std::vector<ACNode> nodes;
+    constexpr int ch(int raw){
+        return raw - S;
+    }
+    constexpr int newNode(int fa = 0){
+        nodes.push_back(ACNode());
+        nodes.back().fa = fa;
+        return nodes.size() - 1;
+    }
+    int operator>>(const std::string& s){
+        assert(!nodes[0].built);
+        int cur = 0;
+        for (int i = 0;i < s.size();i ++){
+            int chd = ch(s[i]);
+            if (!nodes[cur][chd]) nodes[cur][chd] = newNode(cur);
+            cur = nodes[cur][chd];
+        }
+        return cur;
+    }
+    int& fail(int u){
+        return nodes[u].fail;
+    }
+    void build(){
+        if (nodes.front().built) return;
+        nodes.front().built = 1;
+        std::queue<int> bfs;
+        for (int v : nodes[0].nxt){
+            if (v) {
+                bfs.push(v);
+                nodes[v].built = 1;
+            }
+        }
+        while(bfs.size()){
+            int u = bfs.front();
+            bfs.pop();
+            for (int i = 0;i < charSiz;i ++){
+                const int &chd = nodes[u][i];
+                if (chd) {
+                    if (!nodes[chd].built){
+                        nodes[chd].built = 1;
+                        bfs.push(chd);
+                        fail(chd) = nodes[fail(u)][i];
+                        nodes[fail(chd)].in ++;
+                    }
+                } else {
+                    nodes[u][i] = nodes[fail(u)][i];
+                }
+            }
+        }
+    }
+    ACNode& operator[](int i){
+        return nodes[i];
+    }
+};
+using ACAM = AhoCorasick<'a','z'>;
+\end{lstlisting}
+
+\section{广义后缀自动机（GSAM）}
+
+用于多个模式串共享的广义后缀自动机，支持多串的子串统计类问题（本质不同子串数、出现次数等）。\texttt{operator>>} 依次插入各模式串。
+
+结点转移为 \texttt{ch}、后缀链接为 \texttt{link}、\texttt{longest} 为该状态最长串长、\texttt{cnt} 为该状态的结束次数；本质不同子串总数为 $\sum_i(\texttt{longest}[i]-\texttt{longest}[\texttt{link}[i]])$。转移表按固定字符集开定长数组，默认支持 'a'–'z'；若字符集不同或很大（约 50 以上），需自行把 \texttt{ch} 换成按需存储的稀疏表。
+
+\begin{lstlisting}
+struct SAMInfo{
+    int cnt = 0;
+    std::vector<int> ch;
+    int link = 0,longest = 0;
+    int& operator[](int idx){return ch[idx];}
+};
+
+// General SuffixAutomaton
+template<typename Info,int S,int E>
+struct SuffixAutomaton{
+    std::vector<Info> nodes;
+    int ed = 1;
+    constexpr SuffixAutomaton(){
+        newNode(); // Void Node
+        newNode(); // Empty String Node -> ""
+    }
+    constexpr int newNode(){
+        int idx = nodes.size();
+        nodes.push_back(Info());
+        nodes.back().ch.resize(E-S+1);
+        return idx;
+    }
+    constexpr void extend(int c){
+        if (nodes[ed][c] && nodes[ed].longest +1 == nodes[nodes[ed][c]].longest){
+            ed = nodes[ed][c],nodes[ed].cnt ++;
+            return;
+        }
+        int p = newNode(),lst = ed;
+        nodes[p].longest = nodes[ed].longest + 1,nodes[p].cnt = 1;
+        for (;ed && !nodes[ed][c];ed = nodes[ed].link) nodes[ed][c] = p;
+        if (!ed) nodes[p].link = 1;
+        else {
+            int q = nodes[ed][c];
+            if (nodes[q].longest == nodes[ed].longest + 1) nodes[p].link = q; // Legal link
+            else {
+                int x;
+                if (lst == ed) x = p; // Split self
+                else x = newNode(),nodes[p].link = x; // New Link
+                nodes[x].ch = nodes[q].ch,nodes[x].link = nodes[q].link;
+                nodes[x].longest = nodes[ed].longest + 1;
+                nodes[q].link = x;
+                for (;ed && nodes[ed][c] == q;ed = nodes[ed].link) nodes[ed][c] = x;
+            }
+        }
+        ed = p; // update ed
+    }
+    constexpr void operator>>(const std::string &str){
+        ed = 1;
+        for (auto &c : str) extend(c-S);
+    }
+    constexpr Info& operator[](int idx){return nodes[idx];}
+};
+using GSAM = SuffixAutomaton<SAMInfo,'a','z'>;
+\end{lstlisting}
+
+\section{回文树（PAM / Eertree）}
+
+用于求字符串的全部本质不同回文子串及其相关统计。除两根外每个结点对应一个本质不同回文，\texttt{len} 为其长度、\texttt{fail} 为其最长回文真后缀；\texttt{extend(c)} 在线加入一个字符并返回以新字符结尾的回文后缀个数（\texttt{cnt} 沿 \texttt{fail} 链累计）。
+
+注意 \texttt{cnt} 不是出现次数，统计各回文出现次数需另行沿 \texttt{fail} 树拓扑累加。
+
+\begin{lstlisting}
+struct PAMNode{
+    int fail = 1,len = 0,cnt = 0;
+    std::vector<int> ch = std::vector<int>(26);
+    int& operator[](int idx){return ch[idx];}
+};
+struct PalindromicAutomaton{
+    using Info = PAMNode;
+    std::vector<Info> nodes;
+    int lst = 1;
+    std::string raw;
+    PalindromicAutomaton():nodes(2){
+        nodes[0].fail = 1,nodes[1].len = -1;
+    }
+    int newNode(){
+        nodes.push_back(Info());
+        return nodes.size()-1;
+    }
+    int matchFail(int u,int idx){
+        while(idx - nodes[u].len - 1 < 0 || raw[idx] != raw[idx-nodes[u].len-1]) u = nodes[u].fail;
+        return u;
+    }
+    // 返回插入该字符后添加的回文子串数量
+    int extend(int c){
+        raw += c + 'a';
+        int p = matchFail(lst,raw.size()-1);
+        if (!nodes[p][c]){
+            int x = newNode();
+            nodes[x].fail = nodes[matchFail(nodes[p].fail,raw.size()-1)][c];
+            nodes[p][c] = x;
+            nodes[x].len = nodes[p].len + 2;
+            nodes[x].cnt = nodes[nodes[x].fail].cnt + 1;
+        }
+        lst = nodes[p][c];
+        return nodes[lst].cnt;
+    }
+};
+using PAM = PalindromicAutomaton;
+\end{lstlisting}

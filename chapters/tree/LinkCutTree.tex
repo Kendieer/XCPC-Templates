@@ -1,0 +1,147 @@
+\section{Link Cut Tree}
+
+动态树（LCT），维护森林，支持加边删边、换根、单点修改、路径异或查询等操作，所有操作均摊 $\mathcal{O}(\log n)$。编号从 $1$ 开始。
+
+\begin{lstlisting}
+struct LinkCutTree {
+    using u32 = unsigned int;
+    LinkCutTree(u32 _n){
+        init(_n);
+    }
+    struct Node {
+        int w = 0,sum = 0;
+    };
+    std::vector<Node> G;
+    std::vector<u32> siz,fa;
+    std::vector<std::array<u32,2>> son;
+    std::vector<bool> rev;
+    u32 size() const {
+        return treeSize;
+    }
+    void pushDown(u32 u){
+        if (!u) return;
+        if (rev[u]){
+            if (u32 v = son[u][0]) flipNode(v);
+            if (u32 v = son[u][1]) flipNode(v);
+            rev[u] = false;
+        }
+    }
+    void pushUp(u32 u){
+        if (!u) return;
+        G[u].sum = G[u].w;
+        if (son[u][0]) G[u].sum ^= G[son[u][0]].sum;
+        if (son[u][1]) G[u].sum ^= G[son[u][1]].sum;
+        siz[u] = siz[son[u][0]] + siz[son[u][1]] + 1;
+    }
+private:
+    u32 treeSize = 0;
+    void init(u32 n){
+        G.resize(n+1);
+        fa.resize(n+1);
+        siz.resize(n+1);
+        son.resize(n+1);
+        rev.resize(n+1);
+        treeSize = n;
+        for (u32 i = 0;i <= n;i++) initNode(i);
+    }
+    void initNode(u32 x){
+        son[x] = {0,0};
+        fa[x] = 0;
+        siz[x] = x == 0 ? 0 : 1;
+        rev[x] = 0;
+    }
+    bool isRoot(u32 u) const {
+        return !u || son[fa[u]][0] != u && son[fa[u]][1] != u;
+    }
+    u32 dir(u32 u){
+        assert(!isRoot(u));
+        return son[fa[u]][1] == u;
+    }
+    void rotate(u32 u){
+        if (!u || !fa[u] || isRoot(u)) return;
+        u32 f = fa[u],i = dir(u);
+        u32 gf = fa[f];
+        if (!isRoot(f)) son[gf][dir(f)] = u;
+        son[f][i] = son[u][!i];
+        son[u][!i] = f;
+        if (son[f][i]) fa[son[f][i]] = f;
+        fa[u] = gf;
+        fa[f] = u;
+        pushUp(f);
+        pushUp(u);
+    }
+    void flipNode(u32 u){
+        std::swap(son[u][0],son[u][1]);
+        rev[u] = !rev[u];
+    }
+    void reverse(u32 u){
+        if (!u) return;
+        splay(u);
+        flipNode(u);
+    }
+public:
+    void splay(u32 u){
+        std::vector<u32> stk;
+        stk.emplace_back(u);
+        u32 x = u;
+        while (!isRoot(x)){
+            x = fa[x];
+            stk.emplace_back(x);
+        }
+        while (!stk.empty()) {
+            pushDown(stk.back());
+            stk.pop_back();
+        }
+        u32 f = fa[u];
+        while (!isRoot(u)){
+            if (!isRoot(f)){
+                rotate(dir(f) == dir(u) ? f : u);
+            }
+            rotate(u);
+            f = fa[u];
+        }
+        pushUp(u);
+    }
+    void access(u32 u){
+        u32 lst = 0;
+        for (u32 x = u;x;x = fa[x]){
+            splay(x);
+            son[x][1] = lst;
+            pushUp(x);
+            lst = x;
+        }
+        splay(u);
+    }
+    void make_root(u32 u){
+        access(u);
+        reverse(u);
+    }
+    void split(u32 x,u32 y){
+        make_root(x);
+        access(y);
+        splay(y);
+    }
+    void link(u32 x,u32 y){
+        if (find_root(x) == find_root(y)) return;
+        make_root(x);
+        fa[x] = y;
+    }
+    void cut(u32 x,u32 y){
+        split(x,y);
+        if (son[x][1] || son[y][0] != x) return;
+        fa[x] = son[y][0] = 0;
+        pushUp(y);
+    }
+    u32 find_root(u32 u){
+        access(u),splay(u);
+        while(son[u][0]) u = son[u][0];
+        return u;
+    }
+    void modify(u32 x,int val){
+        splay(x);
+        G[x].w = val;
+        pushUp(x);
+    }
+};
+\end{lstlisting}
+

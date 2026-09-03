@@ -1,0 +1,34 @@
+\chapter*{前言}
+\markboth{前言}{}
+
+这份手册整理了在算法竞赛中常用的知识体系与代码模板，涵盖数据结构、图论、数学、字符串等专题，所有代码均以 C++23 为准。
+
+\section*{使用说明}
+
+\begin{itemize}[leftmargin=2em]
+    \item 每个专题独立成章，可直接按目录跳转查阅；
+    \item 代码块中的模板均经过评测验证，复杂度以注释标注；
+\end{itemize}
+
+\section*{约定}
+
+\begin{itemize}[leftmargin=2em]
+    \item 除特别说明外，数组下标从 $1$ 开始；
+    \item $n, m$ 分别表示点数与边数（或序列长度与操作次数）；
+    \item 所有取模运算的模数在代码中以 \texttt{Z} 表示，取模类见 \texttt{ModInt}。
+    \item 以下是常用的类型宏定义 \begin{lstlisting}
+using i64 = long long;
+using u64 = unsigned long long;
+using p32 = std::array<int,2>;
+using p64 = std::array<i64,2>;
+    \end{lstlisting}
+    \item 部分函数传参带 $s/beg$ 通常代表起始下标。
+    \item 所有用到的 \texttt{STL} 库内容均会以 \verb|using std::xxx| 或直接使用 \verb|std::xxx|
+\end{itemize}
+
+\vspace{2em}
+
+\begin{flushright}
+    Kendieer\\
+    \today
+\end{flushright}

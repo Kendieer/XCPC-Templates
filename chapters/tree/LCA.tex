@@ -1,0 +1,78 @@
+\section{最近公共祖先}
+
+\subsection{$\mathcal{O}(1)$ LCA}
+
+使用片段：需上下文已有以 $1$ 为根的树邻接表 $G$（$1..n$）与前置模板 \texttt{SparseTable}。段内定义 \texttt{dfn}、\texttt{dep}、\texttt{fa}、\texttt{seq} 与查询函数 \texttt{lca(x,y)}。
+
+预处理 $\mathcal{O}(n\log n)$，单次查询 $\mathcal{O}(1)$。
+
+\begin{lstlisting}
+vector<int> dfn(n+1),dep(n+1),fa(n+1),seq(1);
+int dfnt = 0;
+auto dfs = [&](this auto&& dfs,int u,int pa) -> void {
+    dfn[u] = ++dfnt;
+    dep[u] = dep[pa] + 1,fa[u] = pa;
+    seq.push_back(u);
+    for (int v : G[u]){
+        if (v == pa) continue;
+        dfs(v,u);
+    }
+};
+dfs(1,1);
+SparseTable st(seq, 1,[&](int x,int y) -> int {
+    return dep[x] <= dep[y] ? x : y;
+});
+auto lca = [&](int x,int y) -> int {
+    if (x == y) return x;
+    x = dfn[x],y = dfn[y];
+    if (x > y) swap(x,y);
+    return fa[st(x+1,y)];
+};
+\end{lstlisting}
+
+\subsection{树链剖分求 LCA}
+
+使用片段：需上下文已有以 $1$ 为根的树邻接表 $G$（$1..n$）；段内定义 \texttt{dep}、\texttt{fa}、\texttt{son}、\texttt{top}、\texttt{dfn} 与查询函数 \texttt{lca(x,y)}。该版本为重链剖分。
+
+预处理 $\mathcal{O}(n)$，单次查询时间复杂度为 $\mathcal{O}(\log n)$。
+
+\begin{lstlisting}
+vector<int> siz(n+1,1),dep(n+1),fa(n+1),son(n+1),top(n+1),dfn(n+1),seq(1);
+auto dfs1 = [&](this auto&& dfs,int u,int pa)->void {
+    fa[u] = pa;
+    dep[u] = dep[pa] + 1;
+    int mx = 0;
+    for (int v : G[u]){
+        if (v == pa) continue;
+        dfs(v,u);
+        siz[u] += siz[v];
+        if (mx < siz[v]){
+            son[u] = v;
+            mx = siz[v];
+        }
+    }
+};
+int tick = 0;
+auto dfs2 = [&](this auto&& dfs,int u,int tp)->void {
+    dfn[u] = ++tick;
+    seq.push_back(u);
+    top[u] = tp;
+    if (son[u]) {
+        dfs(son[u],tp);
+    }
+    for (int v : G[u]){
+        if (v == fa[u] || v == son[u]) continue;
+        dfs(v,v);
+    }
+};
+dfs1(1,1);
+dfs2(1,1);
+auto lca = [&](int x,int y) -> int {
+    while (top[x] != top[y]) {
+        if (dep[top[x]] > dep[top[y]]) swap(x,y);
+        y = fa[top[y]];
+    }
+    return dep[x] > dep[y] ? y : x;
+};
+\end{lstlisting}
+

@@ -1,0 +1,68 @@
+\section{莫队算法}
+
+离线处理一类区间询问：若当前区间 $[L,R]$ 的答案能在 $\mathcal{O}(1)$ 内平移到相邻区间（只需把单个位置 $p$ 移入或移出），则把所有询问排序后暴力移动左右指针即可。使用前需自行实现 \verb|add(p)| 与 \verb|del(p)|：分别把位置 $p$ 移入、移出当前区间，并同步维护答案变量 \texttt{now}；被 \verb|add| 维护的信息必须能由 \verb|del| 可逆地删除。数组与区间下标均为 $1$ 起始。
+
+\subsection{普通莫队}
+
+询问存于 \verb|qs|，元素为 $\texttt{\{l, r, id\}}$（\verb|l <= r|）。按左端点分块、块内右端点单调，并以奇偶块切换右端点的升降方向以减少指针空移。
+
+$q$ 与 $n$ 同阶时总复杂度 $\mathcal{O}((n+q)\sqrt n)$。
+
+\begin{lstlisting}
+int B = std::max(1, (int)(n / std::sqrt((double)std::max(1, (int)qs.size()))));
+std::sort(qs.begin(), qs.end(), [&](const auto& x, const auto& y) {
+    int bx = x[0] / B, by = y[0] / B;
+    if (bx != by) return bx < by;
+    return (bx & 1) ? x[1] > y[1] : x[1] < y[1];
+});
+std::vector<int> ans(qs.size());
+int L = 1, R = 0;
+for (const auto& [l, r, id] : qs){
+    while (L > l) add(--L);
+    while (R < r) add(++R);
+    while (L < l) del(L++);
+    while (R > r) del(R--);
+    ans[id] = now;
+}
+\end{lstlisting}
+
+\subsection{带修莫队}
+
+额外支持若干次把 $a[p]$ 改为 $v$ 的单点修改。\verb|qs| 元素为 $\texttt{\{l, r, t, id\}}$，$t$ 表示“此询问前已应用的修改次数”；\verb|mods| 元素为 $\texttt{\{p, v\}}$，第 $k$（$0$ 起始）个修改把 $a[p]$ 变为 $v$，\texttt{a} 为当前数组。时间指针前进/后退遇到修改时，若 $p$ 恰在当前区间内，先 \verb|del| 旧值再 \verb|add| 新值以同步答案（代码用 \texttt{swap} 记录原值以便回退）。
+
+$q$ 与修改次数均同 $n$ 阶、块长取 $n^{2/3}$ 时，复杂度 $\mathcal{O}(n^{5/3})$。
+
+\begin{lstlisting}
+int L = 1, R = 0, cur = 0;
+auto moveTime = [&](int& cur, int goal){
+    while (cur < goal){
+        auto& m = mods[cur];
+        if (L <= m[0] && m[0] <= R) del(m[0]);
+        std::swap(a[m[0]], m[1]);
+        if (L <= m[0] && m[0] <= R) add(m[0]);
+        ++cur;
+    }
+    while (cur > goal){
+        --cur;
+        auto& m = mods[cur];
+        if (L <= m[0] && m[0] <= R) del(m[0]);
+        std::swap(a[m[0]], m[1]);
+        if (L <= m[0] && m[0] <= R) add(m[0]);
+    }
+};
+int B = std::max(1, (int)std::pow((double)n, 2.0 / 3.0));
+std::sort(qs.begin(), qs.end(), [&](const auto& x, const auto& y) {
+    if (x[0] / B != y[0] / B) return x[0] / B < y[0] / B;
+    if (x[1] / B != y[1] / B) return x[1] / B < y[1] / B;
+    return x[2] < y[2];
+});
+std::vector<int> ans(qs.size());
+for (const auto& q : qs){
+    moveTime(cur, q[2]);
+    while (L > q[0]) add(--L);
+    while (R < q[1]) add(++R);
+    while (L < q[0]) del(L++);
+    while (R > q[1]) del(R--);
+    ans[q[3]] = now;
+}
+\end{lstlisting}

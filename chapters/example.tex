@@ -1,0 +1,62 @@
+\chapter{示例章节}
+
+本章演示模板的常用环境：数学定理、复杂度记号与代码块。确认排版无误后，可以删除本文件，并在 \texttt{main.tex} 中移除对应的 \verb|\include| 行。
+
+\section{数学环境}
+
+\begin{definition}[同余]
+    若 $m \mid (a - b)$，则称 $a$ 与 $b$ 模 $m$ 同余，记作 $a \equiv b \pmod{m}$。
+\end{definition}
+
+\begin{theorem}[费马小定理]
+    设 $p$ 为素数，$a$ 为整数且 $p \nmid a$，则
+    \[
+        a^{p-1} \equiv 1 \pmod{p}.
+    \]
+\end{theorem}
+
+\begin{example}
+    取 $p = 7$，$a = 3$，则 $3^{6} = 729 \equiv 1 \pmod{7}$。
+\end{example}
+
+常用记号：$\mathbb{N}, \mathbb{Z}, \mathbb{Q}, \mathbb{R}$，$\lvert -x \rvert = x$（$x \ge 0$），$\lfloor \tfrac{7}{2} \rfloor = 3$，$\lceil \tfrac{7}{2} \rceil = 4$，时间复杂度 $O(n \log n)$。
+
+\section{代码环境}
+
+\begin{lstlisting}
+#include <bits/stdc++.h>
+using namespace std;
+
+// 快速幂：O(log n)
+long long qpow(long long a, long long b, long long mod) {
+    long long res = 1 % mod;
+    a %= mod;
+    while (b > 0) {
+        if (b & 1) res = res * a % mod;
+        a = a * a % mod;
+        b >>= 1;
+    }
+    return res;
+}
+
+int main() {
+    cout << qpow(3, 6, 7) << '\n';  // 输出 1
+    return 0;
+}
+\end{lstlisting}
+
+\section{表格}
+
+\begin{table}[h]
+    \centering
+    \begin{tabular}{lll}
+        \toprule
+        数据结构 & 查询 & 修改 \\
+        \midrule
+        树状数组 & $O(\log n)$ & $O(\log n)$ \\
+        线段树   & $O(\log n)$ & $O(\log n)$ \\
+        分块     & $O(\sqrt{n})$ & $O(1)$ \\
+        \bottomrule
+    \end{tabular}
+    \caption{常见区间数据结构复杂度对比}
+\end{table}

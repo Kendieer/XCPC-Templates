@@ -1,0 +1,154 @@
+\section{高精度}
+
+\subsection{高精度整数}
+
+\verb|BigInt|：高精度整数，用十进制串 \verb|BigInt(s)| 或 \texttt{long long} \verb|BigInt(x)| 构造，支持负数与四则运算、$\%$、比较、\verb|<<|（乘 $10^k$）及流式 IO，\verb|to_string()| 转回十进制串；\verb|a / b|、\verb|a % b| 的符号规则同 C++ 整数。
+
+加减复杂度 $\mathcal{O}(n)$；乘法与除法均为 $\mathcal{O}(n^2)$（$n$ 为十进制位数）。
+
+\begin{lstlisting}
+struct BigInt{
+    std::vector<int> num;
+    int sign = 1,size = 0;
+    BigInt(std::string raw){
+        while (raw.size()) {
+            int ch = raw.back();raw.pop_back();
+            assert(ch == '-' || std::isdigit(ch));
+            if (ch == '-') sign = -1;
+            else num.push_back(ch - '0');
+        }
+        refresh();
+    }
+    BigInt(long long raw = 0){
+        if (raw < 0) sign = -1,raw = -raw;
+        while (raw) num.push_back(raw%10),raw /= 10;
+        refresh();
+    }
+    BigInt& operator=(long long x){
+        return *this = BigInt(x);
+    }
+    std::string to_string(){
+        refresh();
+        if (num.empty()) return "0";
+        std::string str = "";
+        if (sign == -1) str += "-";
+        for (int i = size-1;i >= 0;i--)
+            str += num[i]+'0';
+        return str;
+    }
+    int& operator[](int index){ // 访问超过size的内容会自动扩容
+        assert(index >= 0); // 防止越界
+        if (index >= num.size()) num.resize(index+1,0);// 扩容
+        return num[index];
+    }
+    void refresh(){ // 刷新当前位数，删除无用前导0
+        while (num.size() && !num.back()) num.pop_back();
+        size = num.size();
+        if (!size) sign = 1;
+    }
+    friend bool operator<(BigInt& x,BigInt& y){
+        x.refresh(),y.refresh();
+        if (x.sign != y.sign) return x.sign < y.sign;
+        bool inv = x.sign == -1;
+        if (x.size != y.size) return (x.size < y.size) ^ inv;
+        for (int i = x.size - 1;i >= 0;i--)
+            if (x[i] != y[i]) return (x[i] < y[i]) ^ inv;
+        return false;
+    }
+    static BigInt unsigned_add(BigInt x,BigInt y){ // 无符号加法
+        x.refresh(),y.refresh();
+        int sz = std::max(x.size,y.size);
+        BigInt z = 0LL;
+        for (int i = 0; i < sz; i++)
+            z[i] += x[i] + y[i],z[i+1] += z[i]/10, z[i] %= 10;
+        z.refresh();
+        return z;
+    }
+    static BigInt unsigned_remove(BigInt x,BigInt y){ // 无符号减法
+        x.sign = 1,y.sign = 1;
+        if (x < y) std::swap(x,y);
+        int sz = x.size;
+        for (int i = 0; i < sz; i++) {
+            if (i < y.size) x[i] -= y[i];
+            if (x[i] < 0) x[i] += 10,x[i+1]--;
+        }
+        x.refresh();
+        return x;
+    }
+    friend BigInt operator+(BigInt x,BigInt y){
+        if (y.sign == -1) return y.sign = 1,x-y;
+        if (x.sign == -1) return x.sign = 1,y-x;
+        return unsigned_add(x,y);
+    }
+    friend BigInt operator-(BigInt x,BigInt y){
+        BigInt z;
+        if (y.sign == -1) return y.sign = 1,x+y;
+        if (x.sign == -1) return z = unsigned_add(x,y),z.sign = -1,z;
+        z = unsigned_remove(x,y),z.sign = (x < y ? -1 : 1);
+        return z;
+    }
+    friend BigInt operator*(BigInt x,BigInt y){
+        BigInt z;
+        x.refresh(),y.refresh();
+        for (int i = 0; i < x.size; ++i)
+            for (int j = 0; j < y.size; ++j)
+                z[i+j] += x[i]*y[j],z[i+j+1] += z[i+j]/10,z[i+j] %= 10;
+        z.sign = x.sign * y.sign,z.refresh();
+        return z;
+    }
+    friend BigInt operator/(BigInt x,BigInt y){
+        BigInt z;
+        x.refresh(),y.refresh();
+        assert(y.size > 0);
+        int sg = x.sign * y.sign;
+        x.sign = y.sign = 1;
+        int sz = x.size - y.size;
+        for (int i = sz;i >= 0; i--){
+            BigInt t = y << i;
+            while (!(x < t)) z[i]++,x -= t;
+        }
+        z.sign = sg,z.refresh();
+        return z;
+    }
+    friend BigInt operator%(BigInt x,BigInt y){
+        x.refresh(),y.refresh();
+        assert(y.size > 0);
+        int sg = x.sign;
+        x.sign = y.sign = 1;
+        for (int i = x.size - y.size;i >= 0;i--){
+            BigInt t = y << i;
+            while (!(x < t)) x -= t;
+        }
+        x.sign = sg,x.refresh();
+        return x;
+    }
+    friend BigInt operator<<(BigInt x,int y){ // x * 10^y
+        std::string raw = x.to_string();
+        for (;y > 0;y--) raw += "0";
+        return BigInt(raw);
+    }
+    BigInt& operator += (BigInt y){
+        return *this = *this + y;
+    }
+    BigInt& operator -= (BigInt y){
+        return *this = *this - y;
+    }
+    BigInt& operator *= (BigInt y){
+        return *this = *this * y;
+    }
+    BigInt& operator /= (BigInt y){
+        return *this = *this / y;
+    }
+    BigInt& operator %= (BigInt y){
+        return *this = *this % y;
+    }
+    friend std::ostream& operator<<(std::ostream& os,BigInt x){
+        return os << x.to_string();
+    }
+    friend std::istream& operator>>(std::istream& is,BigInt &x){
+        std::string str;
+        is >> str,x = BigInt(str);
+        return is;
+    }
+};
+\end{lstlisting}

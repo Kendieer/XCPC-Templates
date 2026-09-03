@@ -1,0 +1,44 @@
+\section{割点与割边}
+
+Tarjan 求割点。割边模板见 \texttt{EBCC}（所有边双分量之间的边均为割边）。
+
+复杂度 $\mathcal{O}(n+m)$。
+
+\begin{lstlisting}
+struct CutVertex{
+    int siz,tim = 0;
+    std::vector<std::vector<int>> G;
+    std::vector<int> dfn,low;
+    std::vector<bool> vis,isCut;
+    CutVertex(int n = 1):siz(n),G(n+1),dfn(n+1),low(n+1),vis(n+1),isCut(n+1){}
+    void connect(int u,int v){
+        assert(u <= siz && v <= siz);
+        G[u].push_back(v);
+        G[v].push_back(u);
+    }
+    void dfs(int u,int pa,bool isRoot = 0){
+        vis[u] = 1;
+        dfn[u] = ++tim,low[u] = dfn[u];
+        int deg = 0;
+        for (int v : G[u]){
+            if (v == pa) continue;
+            if (vis[v]) {
+                low[u] = std::min(low[u],dfn[v]);
+            } else {
+                deg++;
+                dfs(v,u);
+                low[u] = std::min(low[u],low[v]);
+                if (!isRoot && low[v] >= dfn[u]) isCut[u] = 1;
+            }
+        }
+        if (isRoot && deg >= 2) isCut[u] = 1;
+    }
+    void work(){
+        for (int i = 1;i <= siz;i++) {
+            if (vis[i]) continue;
+            dfs(i,i,1);
+        }
+    }
+};
+\end{lstlisting}
+

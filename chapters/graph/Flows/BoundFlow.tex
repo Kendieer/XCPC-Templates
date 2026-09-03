@@ -1,0 +1,60 @@
+\subsection{上下界网络流}
+
+\subsubsection{上下界可行流/最大流/最小流}
+
+基于 \texttt{Dinic}（见 MaxFlow.tex，其中定义了 \texttt{i64} 与 \texttt{INF}）。\texttt{connect(u,v,l,r)}：添加边 $u\to v$，流量须落在区间 $[l,r]$ 内。\texttt{getFlow()} 判断是否存在满足所有边上下界的可行流（不带源汇即判断是否存在循环流）；\texttt{maxflow(s,t)}、\texttt{minflow(s,t)} 返回满足边上下界的 $s\to t$ 最大/最小流量，不存在可行流时返回 $-1$。该方法求得的可行流值非负，即需要存在一条流量值 $\ge 0$ 的可行流。\texttt{maxflow} 与 \texttt{minflow} 各在可行流判定后多做一次增广，总复杂度与两次 \texttt{Dinic} 同阶，$\mathcal{O}(n^2m)$。
+
+\begin{lstlisting}
+template<typename Flow>
+struct BoundFlow {
+    Flow G;
+    std::vector<i64> w,f;
+    int n,m = 0;
+    BoundFlow (int _n) : n(_n),G(_n + 2),w(_n+1),f(1) {}
+    void connect(int u,int v,i64 l,i64 r) {
+        m++;
+        G.connect(u,v,r-l);
+        f.push_back(l);
+        w[u] -= l;
+        w[v] += l;
+    }
+    bool getFlow(int s = 0,int t = 0) {
+        int S = n+1,T = n+2;
+        for (int i = 1;i <= n;i++){
+            if (w[i] > 0) {
+                G.connect(S,i,abs(w[i]));
+            } else if (w[i] < 0) {
+                G.connect(i,T,abs(w[i]));
+            }
+        }
+        int M = G.edge.size();
+        if (s && t) G.connect(t,s,INF);
+        G.work(S,T);
+        for (int i = 2;i <= m*2;i += 2){
+            f[i/2] += G.edge[i].c - G.edge[i].f;
+        }
+        for (int i = m*2+2;i < M;i += 2){
+            if (G.edge[i].f != 0 || G.edge[i^1].f != G.edge[i^1].c) return 0;
+        }
+        return 1;
+    }
+    i64 maxflow(int s,int t){
+        if (!getFlow(s,t)) return -1;
+        int rid = G.head[t];
+        i64 sum = G.edge[rid^1].f;
+        G.edge[rid].f = G.edge[rid^1].f = 0;
+        G.edge[rid].c = G.edge[rid^1].c = 0;
+        sum += G.work(s,t);
+        return sum;
+    }
+    i64 minflow(int s,int t){
+        if (!getFlow(s,t)) return -1;
+        int rid = G.head[t];
+        i64 sum = G.edge[rid^1].f;
+        G.edge[rid].f = G.edge[rid^1].f = 0;
+        G.edge[rid].c = G.edge[rid^1].c = 0;
+        sum -= G.work(t,s);
+        return sum;
+    }
+};
+\end{lstlisting}

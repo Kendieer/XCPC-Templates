@@ -1,0 +1,72 @@
+\section{Matrix-Tree 定理}
+
+需要 \texttt{Z}（模意义整数，见杂项章节）与高斯消元求行列式 \texttt{Guass::det}。
+
+\subsection{生成树计数}
+
+无向图生成树个数 = 拉普拉斯矩阵（度数矩阵 $-$ 邻接矩阵）去掉任一行一列后的行列式。重边按权值累加。
+
+\begin{lstlisting}
+namespace MatrixTree {
+    using MInt = Z;
+    using std::vector;
+    using std::array;
+    MInt undirected(int n,vector<array<int,3>> E){
+        vector K(n,vector(n,MInt(0)));
+        for (auto [x,y,w] : E){
+            K[x][y] -= w;
+            K[y][x] -= w;
+            K[x][x] += w;
+            K[y][y] += w;
+        }
+        for (int i = 0;i < n;i++){
+            K[i].pop_back();
+        }
+        K.pop_back();
+        return Guass::det(K);
+    }
+    // 该版本为外向树版本，如果为内向树则需要边权取反
+    MInt directed(int n,int rt,vector<array<int,3>> E){
+        vector K(n,vector(n,MInt(0)));
+        for (auto [x,y,w] : E){
+            K[x][y] -= w;
+            K[y][y] += w;
+        }
+        for (int i = 0;i < n;i++){
+            K[i].erase(K[i].begin()+rt,K[i].begin()+rt+1);
+        }
+        K.erase(K.begin()+rt,K.begin()+rt+1);
+        return Guass::det(K);
+    }
+};
+\end{lstlisting}
+
+\subsection{BEST 定理}
+
+若有向强连通图中存在欧拉回路，那么它的欧拉回路个数为 $ec(G)=t^{root}(G,k)\cdot\prod_{i=1}^n(\deg(i)-1)!$，其中 $k$ 可以取 $1\sim n$ 的任意正整数。
+
+\begin{lstlisting}
+namespace MatrixTree {
+    using std::vector;
+    using std::array;
+    MInt BEST(int n,vector<array<int,3>> E){
+        if (E.empty()) return 1;
+        vector<int> in(n),out(n);
+        for (auto [x,y,w] : E){
+            out[x] += w;
+            in[y] += w;
+        }
+        for (int i = 0;i < n;i++) {
+            if (in[i] != out[i]) return 0;
+        }
+        MInt prod = 1;
+        int mx = 0;
+        for (int i = 0;i < n;i++) mx = std::max(mx,in[i]);
+        vector<MInt> fact(mx+1,1);
+        for (int i = 1;i <= mx;i++) fact[i] = fact[i-1] * i;
+        for (int i = 0;i < n;i++) if (in[i]) prod *= fact[in[i]-1];
+        return directed(n,0,E) * prod;
+    }
+};
+\end{lstlisting}
+

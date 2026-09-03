@@ -1,0 +1,46 @@
+\subsection{最小割树（Gomory-Hu）}
+
+建出 $n$ 个点的树，使树上任意两点间路径的最小边权等于原图这两点间的最小割；之后两点最小割即树上路径最小边权。构造前先对原图加边：\texttt{connect(u,v,c)} 加容量 $c$ 的无向边。前置依赖：\texttt{MinCut} 必须用 MaxFlow.tex 的 \texttt{Dinic}（代码直接读取其 \texttt{edge/dis} 内部状态，\texttt{Flow.work} 一次只求一个源汇的最小割），并需一并抄取 \texttt{using i64 = long long;}；结点编号为 $1..n$。单点建树约 $n$ 次最大流，总复杂度 $\mathcal{O}(n^3 m)$。
+
+\begin{lstlisting}
+template<typename MinCut>
+struct GomoryHuTree {
+    int n;
+    MinCut Flow;
+    std::vector<std::vector<std::array<long long,2>>> G;
+    std::vector<int> vdx;
+    GomoryHuTree(int _n):n(_n),Flow(n),G(n+1),vdx(n+1){
+        std::iota(vdx.begin(),vdx.end(),0);
+    }
+    void connect(int u,int v,i64 c){
+        Flow.connect(u,v,c);
+        Flow.connect(v,u,c);
+    }
+    void build(int l,int r){
+        if (l >= r) return;
+        for (int e = 2;e < Flow.edge.size();e += 2){
+            Flow.edge[e].f = Flow.edge[e].c;
+            Flow.edge[e^1].f = 0;
+        }
+        i64 cut = Flow.work(vdx[l],vdx[r]);
+        G[vdx[r]].push_back({vdx[l],cut});
+        G[vdx[l]].push_back({vdx[r],cut});
+        std::vector<int> v1,v2;
+        for (int i = l;i <= r;i++){
+            int u = vdx[i];
+            if (Flow.dis[u] != -1) v1.push_back(u);
+            else v2.push_back(u);
+        }
+        const int mid = l + v1.size();
+        for (int i = l;i < mid;i++){
+            vdx[i] = v1[i - l];
+        }
+        for (int i = mid;i <= r;i++){
+            vdx[i] = v2[i - mid];
+        }
+        build(l,mid-1);
+        build(mid,r);
+    }
+};
+\end{lstlisting}
+

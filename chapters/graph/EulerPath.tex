@@ -1,0 +1,19 @@
+\section{欧拉路径与欧拉回路}
+
+对存有向图邻接表 $G$ 求欧拉路径/回路（每条边恰好访问一次）：先调用 \texttt{dfs(s)}，再 \texttt{reverse} 整个 \texttt{path}，即得到从起点到终点的顶点序列。该段为使用片段，需放在已定义好邻接表 $G$、顶点数 $n$ 与起点 $s$ 的上下文中（\texttt{path}、\texttt{now} 在段内自行声明）。复杂度 $\mathcal{O}(n+m)$，起点选择规则见下方注意。
+
+\begin{lstlisting}
+std::vector<int> path,now(n+1);
+auto dfs = [&](this auto&& dfs,int u)->void {
+    while (now[u] < (int)G[u].size()){
+        int v = G[u][now[u]];
+        now[u]++;
+        dfs(v);
+    }
+    path.push_back(u);
+};
+dfs(s); // 若为回路则任意点出发，否则选择 out[i]-in[i]=1 的点出发
+std::reverse(path.begin(),path.end());
+\end{lstlisting}
+
+注意：回路可从任意点出发、路径需从 $out[i]-in[i]=1$ 的点出发；本模板按有向图书写（每条边仅在其出点邻接表中由游标删除），无向图需同时删除反向边并以奇度顶点为起点，使用前应校验度数条件与弱连通性。

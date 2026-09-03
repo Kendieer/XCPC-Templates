@@ -1,0 +1,70 @@
+\section{欧拉函数}
+
+$\varphi(x)$ 表示 $1\sim x$ 中与 $x$ 互质的数的个数。
+
+\subsection{求单一数字 $\varphi(x)$}
+
+\verb|getPhi(x)| 求单一数字的 $\varphi(x)$，复杂度 $\mathcal{O}(\sqrt{x})$：
+
+\begin{lstlisting}
+int getPhi(int x){
+    int res = 1;
+    for (int i = 2;i <= x / i;i++){
+        if (x % i == 0){
+            res *= i-1;
+            x /= i;
+            while (x % i == 0){
+                res *= i;
+                x /= i;
+            }
+        }
+    }
+    if (x > 1) res *= x-1;
+    return res;
+}
+\end{lstlisting}
+
+欧拉筛线性求 $\varphi$ 数组，\texttt{phi[i]} 为 $\varphi(i)$，需先调用 \verb|Sieve()|：
+
+\subsection{欧拉筛求 $\varphi(x)$}
+
+\begin{lstlisting}
+constexpr int N = 1E7 + 3;
+std::bitset<N> np;
+std::vector<int> phi,primes;
+void Sieve(){
+    np[0] = np[1] = 1;
+    phi.resize(N,1);
+    for (int i = 2;i < N;i++){
+        if (!np[i]) {
+            phi[i] = i-1;
+            primes.push_back(i);
+        }
+        for (const int& x : primes){
+            if (x * i >= N) break;
+            np[x * i] = 1;
+            if (i % x == 0) {
+                phi[i * x] = phi[i] * x;
+                break;
+            }
+            phi[x * i] *= (x - 1) * phi[i];
+        }
+    }
+}
+\end{lstlisting}
+
+欧拉函数常用于化简 $\gcd$ 之和。由 $n=\sum_{d\mid n}\varphi(d)$ 取 $n=\gcd(a,b)$ 得
+\[ \gcd(a,b)=\sum_{d\mid a,\ d\mid b}\varphi(d). \]
+
+对 $i$ 求和并用 $\sum_{i=1}^{n}[d\mid i]=\left\lfloor\frac{n}{d}\right\rfloor$，得到
+\[ \sum_{i=1}^{n}\gcd(i,n)=\sum_{d\mid n}\left\lfloor\frac{n}{d}\right\rfloor\varphi(d). \]
+
+\subsection{欧拉定理（欧拉降幂）}
+
+若 $\gcd(a,m)=1$，则 $a^{\varphi(m)}\equiv 1\pmod{m}$。指数为超大数（字符串给出）时按下式降幂：
+\[
+a^b \bmod m = \begin{cases}
+a^{\,b\bmod\varphi(m)}\bmod m, & \gcd(a,m)=1,\\[4pt]
+a^{\,b\bmod\varphi(m)+\varphi(m)}\bmod m, & \gcd(a,m)\ne 1,\ b\ge\varphi(m).
+\end{cases}
+\]

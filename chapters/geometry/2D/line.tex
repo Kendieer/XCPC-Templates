@@ -1,0 +1,17 @@
+\subsection{线}
+
+前置模板：\textbf{\texttt{点}}。\verb|Col(a,b,c)|：判断三点共线；\verb|onSeg(a,b,p)|：判断 $p$ 是否在线段 $ab$ 上（含端点）。二者均用精确 \texttt{==} 判定、无 \texttt{eps}：整型坐标可靠，浮点坐标建议按需自行加容差。均为 $\mathcal{O}(1)$。
+
+\begin{lstlisting}
+template<typename T = double>
+bool Col(const Point<T> &a,const Point<T> &b,const Point<T> &c){//三点共线
+    return Point<T>::cross( b - a , c - a ) == 0 ;
+}
+
+template<typename T = double>
+bool onSeg(const Point<T>& a, const Point<T>& b, const Point<T>& p) {//点在线段上
+    return Point<T>::cross(b - a, p - a) == 0 &&
+    std::min(a.x,b.x) <= p.x && p.x <= std::max(a.x,b.x) &&
+    std::min(a.y,b.y) <= p.y && p.y <= std::max(a.y,b.y);
+}
+\end{lstlisting}

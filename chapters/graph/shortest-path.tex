@@ -1,0 +1,87 @@
+\section{最短路}
+
+\subsection{Dijkstra（堆优化，非负权）}
+
+\verb|G[u]| 为邻接表，元素为 $(v,w)$（下标 $1..n$，可带负权的场景见下方 Johnson）。\verb|dijkstra(s)| 返回 $s$ 到各点的距离 \texttt{dis}，不可达为 \texttt{INF}。
+
+复杂度 $\mathcal{O}((n+m)\log n)$。
+
+\begin{lstlisting}
+using i64 = long long;
+const i64 INF = (i64)4e18;
+auto dijkstra = [&](int s) -> std::vector<i64> {
+    std::vector<i64> dis(n + 1, INF);
+    std::priority_queue<std::pair<i64, int>, std::vector<std::pair<i64, int>>, std::greater<>> pq;
+    dis[s] = 0;
+    pq.push({0, s});
+    while (!pq.empty()){
+        auto [d, u] = pq.top();
+        pq.pop();
+        if (d != dis[u]) continue;
+        for (auto [v, w] : G[u]){
+            if (d + w < dis[v]){
+                dis[v] = d + w;
+                pq.push({dis[v], v});
+            }
+        }
+    }
+    return dis;
+};
+\end{lstlisting}
+
+\subsection{Johnson 全源最短路（允许负权、无负环）}
+
+单点 Dijkstra 无法处理负权边。Johnson 先求一遍“势能”$h$，把每条边 $(u,v,w)$ 改写为 $w+h_u-h_v\ge 0$ 后从每个点跑 Dijkstra，最后还原真实距离。要求无负环（存在时 \verb|work| 返回 \texttt{false}）；点数 $n$ 不大且边稀疏时优于 Floyd。
+
+\verb|dis[u][v]| 为 $u\to v$ 的最短路，不可达为 \texttt{INF}。
+
+复杂度 $\mathcal{O}(nm + nm\log n)$。
+
+\begin{lstlisting}
+using i64 = long long;
+struct Johnson {
+    int n;
+    std::vector<std::vector<std::pair<int, i64>>> G;
+    std::vector<std::vector<i64>> dis;
+    Johnson(int n) : n(n), G(n + 1), dis(n + 1, std::vector<i64>(n + 1, (i64)4e18)) {}
+    void addEdge(int u, int v, i64 w){ G[u].push_back({v, w}); }
+    bool work(){
+        const i64 INF = (i64)4e18;
+        std::vector<i64> h(n + 1, 0), cnt(n + 1, 0);
+        std::vector<char> inq(n + 1, 1);
+        std::queue<int> q;
+        for (int i = 1; i <= n; i++) q.push(i);
+        while (!q.empty()){
+            int u = q.front(); q.pop(); inq[u] = 0;
+            for (auto [v, w] : G[u]){
+                if (h[v] > h[u] + w){
+                    h[v] = h[u] + w;
+                    if (!inq[v]){
+                        if (++cnt[v] > n) return false;
+                        q.push(v); inq[v] = 1;
+                    }
+                }
+            }
+        }
+        for (int u = 1; u <= n; u++){
+            dis[u][u] = 0;
+            std::priority_queue<std::pair<i64, int>, std::vector<std::pair<i64, int>>, std::greater<>> pq;
+            pq.push({0, u});
+            while (!pq.empty()){
+                auto [d, x] = pq.top(); pq.pop();
+                if (d != dis[u][x]) continue;
+                for (auto [v, w] : G[x]){
+                    i64 nd = d + w + h[x] - h[v];
+                    if (nd < dis[u][v]){
+                        dis[u][v] = nd;
+                        pq.push({nd, v});
+                    }
+                }
+            }
+            for (int v = 1; v <= n; v++)
+                if (dis[u][v] < INF) dis[u][v] += h[v] - h[u];
+        }
+        return true;
+    }
+};
+\end{lstlisting}

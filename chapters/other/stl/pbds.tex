@@ -1,0 +1,119 @@
+\subsection{pb\_ds 常用容器}
+
+pb\_ds（\texttt{\_\_gnu\_pbds}）属 GCC 扩展（MinGW/Linux 均支持），提供平衡树、配对堆、哈希表等容器。常用容器与头文件见下表，操作代码见各小节。
+
+\begin{center}
+\small
+\begin{tabular}{lp{1.7cm}p{4.4cm}p{4.4cm}}
+\toprule
+容器 & 底层结构 & 头文件 & 特点 \\
+\midrule
+\texttt{tree} & 红黑树 & \texttt{assoc\_container.hpp}\\\texttt{tree\_policy.hpp} & 第 $k$ 小/排名，单次 $\mathcal{O}(\log n)$ \\
+\texttt{priority\_queue} & 配对堆 & \texttt{priority\_queue.hpp} & push 返回点迭代器，join 均摊 $\mathcal{O}(1)$ \\
+\texttt{gp\_hash\_table} & 开放寻址 & \texttt{assoc\_container.hpp} & 均摊 $\mathcal{O}(1)$，常数小于 \texttt{unordered\_map} \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\textbf{有序统计树}：\texttt{tree} 要求键值唯一，用 \texttt{pair} 第二维存唯一编号实现 multiset（重复元素），删除重复值用 \texttt{lower\_bound} 定位单个元素。
+
+\begin{center}
+\small
+\begin{tabular}{lp{7cm}c}
+\toprule
+操作 & 写法 & 复杂度 \\
+\midrule
+插入一个 $x$ & \texttt{tr.insert(\{x, ++id\})} & $\mathcal{O}(\log n)$ \\
+删除一个 $x$ & \texttt{tr.erase(tr.lower\_bound(\{x, 0\}))} & $\mathcal{O}(\log n)$ \\
+第 $k$ 小 & \texttt{tr.find\_by\_order(k)->first} & $\mathcal{O}(\log n)$ \\
+小于 $x$ 的个数 & \texttt{tr.order\_of\_key(\{x, 0\})} & $\mathcal{O}(\log n)$ \\
+值 $\ge k$ 移出 & \texttt{T.clear(); tr.split(\{k, 0\}, T)} & $\mathcal{O}(\log n)$ \\
+合并 & \texttt{tr.join(T)} & $\mathcal{O}(\log^2 n)$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+split 将值 $\ge k$ 的元素移入 $T$；join 要求 \texttt{tr} 中所有键 $<$ $T$ 中所有键，否则抛异常。
+
+\begin{lstlisting}
+#include <ext/pb_ds/assoc_container.hpp>
+#include <ext/pb_ds/tree_policy.hpp>
+using namespace __gnu_pbds;
+using pii = std::pair<int,int>;
+typedef tree<pii, null_type, std::less<pii>, rb_tree_tag,
+             tree_order_statistics_node_update> OST;
+OST tr;
+int id = 0;
+void insert(int x){ tr.insert({x, ++id}); }            // 插入一个 x
+void erase(int x){ tr.erase(tr.lower_bound({x, 0})); } // 删除一个 x
+int kth(int k){ return tr.find_by_order(k)->first; }   // 第 k 小(0-indexed)
+int cnt(int x){ return tr.order_of_key({x, 0}); }      // 严格小于 x 的个数
+void split(int k, OST &T){ T.clear(); tr.split({k, 0}, T); } // 值 >= k 移入 T
+void join(OST &T){ tr.join(T); }                       // 要求 tr 全键 < T 全键
+\end{lstlisting}
+
+\textbf{配对堆}：\texttt{push} 返回点迭代器，可 $\mathcal{O}(\log n)$ 修改堆内某点、均摊 $\mathcal{O}(1)$ 合并两堆，常用于 Dijkstra 与堆的合并。
+
+\begin{center}
+\small
+\begin{tabular}{lp{7cm}c}
+\toprule
+操作 & 写法 & 复杂度 \\
+\midrule
+入堆 & \texttt{auto it = pq.push(\{dis[v], v\})} & $\mathcal{O}(\log n)$ \\
+修改键值 & \texttt{pq.modify(it, \{dis[v] + w, v\})} & $\mathcal{O}(\log n)$ \\
+合并 & \texttt{pq.join(other)} & 均摊 $\mathcal{O}(1)$ \\
+取堆顶 & \texttt{pq.top()} & $\mathcal{O}(1)$ \\
+弹堆顶 & \texttt{pq.pop()} & $\mathcal{O}(\log n)$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\begin{lstlisting}
+#include <ext/pb_ds/priority_queue.hpp>
+using namespace __gnu_pbds;
+using Node = std::pair<int,int>; // (dist, v)
+__gnu_pbds::priority_queue<Node, std::greater<Node>,
+                           pairing_heap_tag> pq;
+auto it = pq.push({dis[v], v});      // 入堆并记录点迭代器
+pq.modify(it, {dis[v] + w, v});      // 修改堆中某点的键值
+pq.join(other);                      // 合并另一个堆到本堆
+auto [d, u] = pq.top();              // 取堆顶
+pq.pop();                            // 弹堆顶
+\end{lstlisting}
+
+\textbf{哈希表}：均摊 $\mathcal{O}(1)$，常数比 \texttt{unordered\_map} 小；可自定义哈希函数避免被构造数据卡掉。
+
+\begin{center}
+\small
+\begin{tabular}{lp{7cm}c}
+\toprule
+操作 & 写法 & 复杂度 \\
+\midrule
+插入 / 查询 & \texttt{mp[x] = 1} & 均摊 $\mathcal{O}(1)$ \\
+查找 & \texttt{mp.find(x) != mp.end()} & 均摊 $\mathcal{O}(1)$ \\
+自定义哈希 & \texttt{gp\_hash\_table<int,int,\allowbreak custom\_hash>} & 抗哈希冲突 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\begin{lstlisting}
+#include <ext/pb_ds/assoc_container.hpp>
+using namespace __gnu_pbds;
+struct custom_hash { // splitmix64 抗哈希冲突
+    static uint64_t splitmix64(uint64_t x){
+        x += 0x9e3779b97f4a7c15;
+        x = (x ^ (x >> 30)) * 0xbf58476d1ce4e5b9;
+        x = (x ^ (x >> 27)) * 0x94d049bb133111eb;
+        return x ^ (x >> 31);
+    }
+    size_t operator()(uint64_t x) const {
+        static const uint64_t FIXED_RANDOM =
+            std::chrono::steady_clock::now().time_since_epoch().count();
+        return splitmix64(x + FIXED_RANDOM);
+    }
+};
+gp_hash_table<int,int> mp;               // 普通哈希表
+gp_hash_table<int,int,custom_hash> mp2;  // 带自定义哈希
+mp[x] = 1;
+\end{lstlisting}

@@ -1,0 +1,74 @@
+\subsection{点}
+
+\verb|Point<T>|：二维点，$T$ 常取 \texttt{double}。重载加减（向量）、数乘、比较（需 \texttt{C++20}，按 $x$ 后 $y$ 排序）与流式 IO；\verb|dot| 点积、\verb|cross| 叉积、\verb|square| 长度平方、\verb|length| 模长、\verb|normalize| 单位向量。\verb|normalize| 建议仅用于浮点 $T$；对零向量调用（或 \texttt{operator/} 除数为 $0$）会触发 \texttt{assert}。
+
+\begin{lstlisting}
+template<typename T = double>
+struct Point{
+    T x,y;
+    Point(T X = 0,T Y = 0):x(X),y(Y){}
+    constexpr auto operator<=>(const Point& b) const { // require C++20
+        if (x == b.x) return y <=> b.y;
+        return x <=> b.x;
+    }
+    constexpr bool operator==(const Point& b) const = default;
+    constexpr Point& operator+=(const Point& b){
+        x += b.x,y += b.y;
+        return *this;
+    }
+    constexpr Point& operator-=(const Point& b){
+        x -= b.x,y -= b.y;
+        return *this;
+    }
+    constexpr Point& operator*=(const T lambda){
+        x *= lambda,y *= lambda;
+        return *this;
+    }
+    constexpr Point& operator/=(const T lambda){
+        x /= lambda,y /= lambda;
+        return *this;
+    }
+    constexpr Point operator-(){
+        return Point(-x,-y);
+    }
+    friend Point operator+(const Point& a,const Point& b){
+        return Point(a.x + b.x,a.y + b.y);
+    }
+    friend Point operator-(const Point& a,const Point& b){
+        return Point(a.x - b.x,a.y - b.y);
+    }
+    friend Point operator*(const Point& a,const T& lambda){
+        return Point(a.x * lambda,a.y * lambda);
+    }
+    friend Point operator*(const T& lambda,const Point& a){
+        return a * lambda;
+    }
+    friend Point operator/(const Point& a,const T& lambda){
+        assert(lambda != 0);
+        return Point(a.x / lambda,a.y / lambda);
+    }
+    // Vector Operations
+    static T dot(const Point& a,const Point& b){
+        return a.x * b.x + a.y * b.y;
+    }
+    static T cross(const Point& a,const Point& b){
+        return a.x * b.y - a.y * b.x;
+    }
+    static T square(const Point& a){
+        return dot(a,a);
+    }
+    double length() const { // Euclidean norm
+        return std::sqrt(dot(*this,*this));
+    }
+    Point normalize() const { // unit vector
+        return *this / length();
+    }
+    // STL
+    friend std::istream& operator>>(std::istream& is,Point &p){
+        return is >> p.x >> p.y;
+    }
+    friend std::ostream& operator<<(std::ostream& os,const Point &p){
+        return os << p.x << ' ' << p.y;
+    }
+};
+\end{lstlisting}

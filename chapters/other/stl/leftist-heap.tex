@@ -1,0 +1,37 @@
+\subsection{可并堆（左偏树）}
+
+需要合并两个堆时，pb\_ds 的配对堆（见上节）最省事；手写左偏树适用于需要自定义合并语义或环境无 pb\_ds 的场合。以小根堆为例，\texttt{merge} 单次 $\mathcal{O}(\log n)$。
+
+\begin{center}
+\small
+\begin{tabular}{lp{7cm}c}
+\toprule
+操作 & 写法 & 复杂度 \\
+\midrule
+合并两堆 & \texttt{int rt = merge(x, y)} & $\mathcal{O}(\log n)$ \\
+插入 & \texttt{rt = push(rt, v)} & $\mathcal{O}(\log n)$ \\
+取堆顶 & \texttt{top(rt)} & $\mathcal{O}(1)$ \\
+弹堆顶 & \texttt{rt = pop(rt)} & $\mathcal{O}(\log n)$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\begin{lstlisting}
+// 可并堆（左偏树）小根堆；merge O(log n)。
+// 待合并的两堆必须互不相交（同一结点不能属于两堆）。
+constexpr int N = 1e5 + 5;
+std::array<int,N> val{},ls{},rs{},d{}; // d[x] = 到空结点的最短距离（d[0] = 0）
+int tot = 0;
+int newnode(int v){ val[++tot] = v; d[tot] = 1; return tot; }
+int merge(int x, int y){
+    if (!x || !y) return x ? x : y;
+    if (val[x] > val[y]) std::swap(x, y); // 小根堆：根取较小者
+    rs[x] = merge(rs[x], y);
+    if (d[ls[x]] < d[rs[x]]) std::swap(ls[x], rs[x]); // 维护左偏：左子 d 更大
+    d[x] = d[rs[x]] + 1;
+    return x;
+}
+int push(int rt, int v){ return merge(rt, newnode(v)); } // 插入：新结点自成一堆后合并
+int top(int rt){ return val[rt]; }
+int pop(int rt){ return merge(ls[rt], rs[rt]); }          // 弹堆顶，左右子树合并为新堆
+\end{lstlisting}

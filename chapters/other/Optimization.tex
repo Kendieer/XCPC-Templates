@@ -1,0 +1,64 @@
+\section{时空优化}
+
+\subsection{读入优化}
+
+\verb|read<T>()|：读取一个值。\verb|read<int>()|、\verb|read<long long>()| 走 \texttt{getchar} 快读，\verb|read<std::string>()| 读取空白分隔的串，其余类型回落 \texttt{cin}（快读与 \texttt{cin} 不要混用）。
+
+\begin{lstlisting}
+namespace QuickStream {
+    template<typename T>
+    T read() {
+        T x;
+        std::cin >> x;
+        return x;
+    }
+
+    template<typename T>
+    inline T read_int() {
+        T x = 0;
+        bool f = 0;
+        int ch = getchar();
+        while (ch != EOF && (ch < '0' || ch > '9')) {
+            if (ch == '-') f = 1;
+            ch = getchar();
+        }
+        for (; ch >= '0' && ch <= '9'; ch = getchar())
+            x = x * 10 + (ch - '0');
+        return f ? -x : x;
+    }
+
+    template<>
+    int read<int>() {
+        return read_int<int>();
+    }
+
+    template<>
+    long long read<long long>() {
+        return read_int<long long>();
+    }
+
+    template<>
+    std::string read<std::string>() {
+        std::string s;
+        int ch = getchar();
+        while (ch != EOF && (ch == ' ' || ch == '\n' || ch == '\r' || ch == '\t')) {
+            ch = getchar();
+        }
+        while (ch != EOF && ch != ' ' && ch != '\n' && ch != '\r' && ch != '\t') {
+            s += (char)ch;
+            ch = getchar();
+        }
+        return s;
+    }
+}
+using QuickStream::read;
+\end{lstlisting}
+
+\subsection{指令集优化}
+
+启用 \texttt{O3}、循环展开与常见位运算指令集，对大常数运算有明显加速；要求评测机为 \texttt{GCC} 且支持相应指令（不支持时 \texttt{pragma} 会被忽略），部分 OJ 禁用。
+
+\begin{lstlisting}
+#pragma GCC optimize("O3,unroll-loops,inline")
+#pragma GCC target("avx2,bmi,bmi2,lzcnt,popcnt")
+\end{lstlisting}

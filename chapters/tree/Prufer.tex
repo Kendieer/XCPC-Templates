@@ -1,0 +1,59 @@
+\section{Prufer 序列}
+
+一棵 $n$ 个点的带标号无根树与一个长度为 $n-2$ 的序列一一对应，该序列即 Prufer 序列。常用于无根树的计数、随机生成树等。编码与解码均为 $\mathcal{O}(n)$。
+
+\begin{lstlisting}
+struct Prufer{
+    static std::vector<int> encode(std::vector<std::vector<int>>& G,int n){
+        std::vector<int> fa = transfromFa(G,n);
+        return encode(fa,n);
+    }
+    static std::vector<int> encode(std::vector<int>& fa,int n){
+        std::vector<int> deg(n+1);
+        for (int i = 1;i < n;i++) deg[fa[i]]++;
+        std::vector<int> res(n-2);
+        for (int i = 1, ptr = 1;i <= n-2;i++){
+            while (deg[ptr] != 0) ptr++;
+            res[i-1] = fa[ptr];
+            deg[ptr]--;
+            deg[fa[ptr]]--;
+            if (deg[fa[ptr]] == 0 && fa[ptr] < ptr) ptr = fa[ptr];
+        }
+        return res;
+    }
+    static std::vector<int> decode(std::vector<int> a,int n){
+        std::vector<int> deg(n+1),fa(n+1);
+        for (int i = 0;i < a.size();i++) deg[a[i]]++;
+        a.push_back(n);
+        for (int cur = 1,i = 0,tmp = -1;i < a.size();i++){
+            int u;
+            if (tmp != -1) {
+                u = tmp;
+                tmp = -1;
+            } else {
+                while (deg[cur] > 0) cur++;
+                u = cur;
+                cur++;
+            }
+            fa[u] = a[i];
+            deg[a[i]]--;
+            if (deg[a[i]] == 0 && cur > a[i]) tmp = a[i];
+        }
+        return fa;
+    }
+private:
+    static std::vector<int> transfromFa(std::vector<std::vector<int>>& G,int n){
+        std::vector<int> fa(n+1);
+        auto dfs = [&](this auto&& dfs,int u,int pa)->void {
+            fa[u] = pa;
+            for (int v : G[u]) {
+                if (v == pa) continue;
+                dfs(v,u);
+            }
+        };
+        dfs(n,n);
+        return fa;
+    }
+};
+\end{lstlisting}
+

@@ -1,0 +1,46 @@
+\section{长链剖分}
+
+长链剖分与重链剖分类似，但选取的“重儿子”是子树中深度最大的儿子，而不是子树大小最大的儿子。这样剖分后每条长链的长度之和为 $\mathcal{O}(n)$，且任意点到其链顶的路径长等于链长。
+
+最常见的应用是以深度为维度的 DP 合并，复杂度 $\mathcal{O}(n)$。
+
+\subsection{长链剖分优化 DP}
+
+使用片段：需上下文已有以 $1$ 为根的树邻接表 $G$（$1..n$）；段内定义 \texttt{dep}、\texttt{son}、\texttt{buf}、\texttt{dp}、\texttt{cur} 与函数 \texttt{dfs1/dfs2}。
+
+\texttt{dp[u][i]} 表示 $u$ 子树内与 $u$ 距离恰为 $i$ 的统计值。各轻儿子子树 DP 结果合并到链上，整棵树的合并总代价 $\mathcal{O}(n)$。由于 $u$ 链上的 \texttt{dp} 缓冲随后会被其父结点复用，读取 \texttt{dp[u][i]} 必须在 $u$ 并入父链之前完成，不能长期保存 \texttt{dp[u]} 的指针。
+
+\begin{lstlisting}
+// dp[u][i]：u 子树内与 u 距离为 i 的信息；链上结点共享缓冲，轻儿子单独分配
+std::vector<int> dep(n + 1), son(n + 1);
+std::vector<int> buf(n + 1);
+std::vector<int*> dp(n + 1);
+int* cur = buf.data();
+
+auto dfs1 = [&](this auto&& dfs, int u, int pa) -> void {
+    dep[u] = 1;
+    for (int v : G[u]) if (v != pa){
+        dfs(v, u);
+        if (dep[v] > dep[son[u]]) son[u] = v;
+    }
+    dep[u] = dep[son[u]] + 1;
+};
+
+auto dfs2 = [&](this auto&& dfs, int u, int pa) -> void {
+    if (!pa || u != son[pa]) dp[u] = cur, cur += dep[u];
+    dp[u][0] = 1;
+    if (son[u]){
+        dp[son[u]] = dp[u] + 1;
+        dfs(son[u], u);
+    }
+    for (int v : G[u]) if (v != pa && v != son[u]){
+        dfs(v, u);
+        for (int i = 0;i < dep[v];i++)
+            dp[u][i + 1] += dp[v][i]; // 合并
+    }
+};
+
+dfs1(1, 0);
+cur = buf.data();
+dfs2(1, 0);
+\end{lstlisting}

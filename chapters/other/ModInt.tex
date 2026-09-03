@@ -1,0 +1,185 @@
+\section{取模类}
+
+\subsection{取模类(静态模数)}
+
+\verb|ModInt<MOD>|：$\bmod MOD$ 的整数，重载加减乘除、\verb|^|（乘方）、比较、\texttt{++}/\texttt{--} 与输入输出，运算后自动取模。\verb|Z = ModInt<998244353>| 为常用别名。要求 $MOD$ 为质数（除法经费马小定理求逆元），对 $0$ 求逆会触发 \texttt{assert}；\verb|x()| 返回当前数值。
+
+\begin{lstlisting}
+template <int MOD>
+struct ModInt{
+    long long val = 0;
+    ModInt(long long x = 0):val(norm(x)){}
+    ModInt(const std::string& s){
+        for (const int& ch : s){
+            val = val * 10 + ch - '0';
+            val = norm(val);
+        }
+    }
+    long long operator()() const { return val; }
+    constexpr ModInt operator-() const {
+        return ModInt(MOD - val);
+    }
+    constexpr ModInt operator~() const {
+        assert(val != 0);
+        return Pow(val,MOD-2);
+    }
+    constexpr ModInt& operator+=(const ModInt& x){
+        return val += x(),val = norm(val),*this;
+    }
+    constexpr ModInt& operator-=(const ModInt& x){
+        return val -= x(),val = norm(val),*this;
+    }
+    constexpr ModInt& operator*=(const ModInt& x){
+        return val *= x(),val = norm(val),*this;
+    }
+    constexpr ModInt& operator/=(const ModInt& x){
+        return val *= (~x)(),val = norm(val),*this;
+    }
+    constexpr ModInt& operator^=(long long y){
+        return val = Pow(*this,y)(),*this;
+    }
+    constexpr bool operator==(const ModInt& x) const {
+        return val == x();
+    }
+    constexpr ModInt& operator++(){
+        return val ++,val = norm(val),*this;
+    }
+    constexpr ModInt operator++(int){
+        ModInt v = *this;
+        return val ++,val = norm(val),v;
+    }
+    constexpr ModInt& operator--(){
+        return val --,val = norm(val),*this;
+    }
+    constexpr ModInt operator--(int){
+        ModInt v = *this;
+        return val --,val = norm(val),v;
+    }
+    constexpr friend ModInt operator+(ModInt x,const ModInt& y){
+        return x += y;
+    }
+    constexpr friend ModInt operator-(ModInt x,const ModInt& y){
+        return x -= y;
+    }
+    constexpr friend ModInt operator*(ModInt x,const ModInt& y){
+        return x *= y;
+    }
+    constexpr friend ModInt operator/(ModInt x,const ModInt& y){
+        return x /= y;
+    }
+    constexpr friend ModInt operator^(ModInt x, long long y){
+        return x ^= y;
+    }
+    constexpr friend std::ostream& operator<<(std::ostream& os,const ModInt& x){
+        return os << x();
+    }
+    constexpr friend std::istream& operator>>(std::istream& is,ModInt &x){
+        is >> x.val, x.val = norm(x.val);
+        return is;
+    }
+    constexpr static long long norm(const long long &x){
+        return x < 0 ? (x % MOD + MOD) % MOD : x % MOD;
+    }
+    constexpr static ModInt Pow(ModInt x,long long y){
+        ModInt ans = 1;
+        for (;y; y >>= 1,x *= x)
+            if (y & 1) ans *= x;
+        return ans;
+    }
+};
+using Z = ModInt<998244353>;
+
+\end{lstlisting}
+
+\subsection{取模类(全局模数)}
+
+\verb|arbModInt|：模数可运行时指定，使用前调用 \verb|arbModInt::setMod(p)|（默认 $998244353$）；其余用法与 \verb|ModInt| 一致。适合模数由输入给定、或需在运行中切换模数的题（如原根、Cipolla）。
+
+\begin{lstlisting}
+static int MOD = 998244353;
+struct arbModInt{
+    long long val = 0;
+    arbModInt(long long x = 0):val(norm(x)){}
+    arbModInt(const arbModInt& x):val(x.val){}
+    arbModInt(const std::string& s){
+        for (const int& ch : s){
+            val = val * 10 + ch - '0';
+            val = norm(val);
+        }
+    }
+    constexpr static void setMod(int p){
+        MOD = p;
+    }
+    long long operator()() const { return val; }
+    constexpr arbModInt operator-() const {
+        return arbModInt(MOD - val);
+    }
+    constexpr arbModInt operator~() const {
+        assert(val != 0);
+        return Pow(val,MOD-2);
+    }
+    constexpr arbModInt& operator+=(const arbModInt& x){
+        return val += x(),val = norm(val),*this;
+    }
+    constexpr arbModInt& operator-=(const arbModInt& x){
+        return val -= x(),val = norm(val),*this;
+    }
+    constexpr arbModInt& operator*=(const arbModInt& x){
+        return val *= x(),val = norm(val),*this;
+    }
+    constexpr arbModInt& operator/=(const arbModInt& x){
+        return val *= (~x)(),val = norm(val),*this;
+    }
+    constexpr arbModInt& operator^=(long long y){
+        return val = Pow(*this,y)(),*this;
+    }
+    constexpr bool operator==(const arbModInt& x) const {
+        return val == x();
+    }
+    constexpr arbModInt& operator++(){
+        return val ++,val = norm(val),*this;
+    }
+    constexpr arbModInt operator++(int){
+        arbModInt v = *this;
+        return val ++,val = norm(val),v;
+    }
+    constexpr arbModInt& operator--(){
+        return val --,val = norm(val),*this;
+    }
+    constexpr arbModInt operator--(int){
+        arbModInt v = *this;
+        return val --,val = norm(val),v;
+    }
+    constexpr friend arbModInt operator+(arbModInt x,const arbModInt& y){
+        return x += y;
+    }
+    constexpr friend arbModInt operator-(arbModInt x,const arbModInt& y){
+        return x -= y;
+    }
+    constexpr friend arbModInt operator*(arbModInt x,const arbModInt& y){
+        return x *= y;
+    }
+    constexpr friend arbModInt operator/(arbModInt x,const arbModInt& y){
+        return x /= y;
+    }
+    constexpr friend arbModInt operator^(arbModInt x,const long long& y){
+        return x ^= y;
+    }
+    constexpr friend std::ostream& operator<<(std::ostream& os,const arbModInt& x){
+        return os << x();
+    }
+    constexpr friend std::istream& operator>>(std::istream& is,arbModInt &x){
+        is >> x.val, x.val = norm(x.val);
+        return is;
+    }
+    constexpr static long long norm(long long x){
+        return x < 0 ? (x % MOD + MOD) % MOD : x % MOD;
+    }
+    constexpr static arbModInt Pow(arbModInt x,long long y){
+        arbModInt ans = 1;
+        for (;y; y >>= 1,x *= x)
+            if (y & 1) ans *= x;
+        return ans;
+    }
+};
+\end{lstlisting}

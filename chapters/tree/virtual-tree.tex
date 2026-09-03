@@ -1,0 +1,41 @@
+\section{虚树}
+
+当若干询问各自只涉及规模为 $k$（$k\ll n$）的点集 $S$、且要在树上按父子关系做 DP 时，抽取 $S$ 及其两两 LCA 组成虚树，边数不超过 $2k-1$，在虚树上做同样转移即可。
+
+需已有以 $1$ 为根的原树：\texttt{n} 为点数，\texttt{dfn[u]} 为 DFS 进入序（保证子树连续即可），\texttt{dep[u]} 为深度，并可用 \verb|lca(u,v)| 求最近公共祖先（即本专题「最近公共祖先」任一版本给出的量）。\verb|buildVirtualTree(S)| 返回虚树邻接表 \texttt{vt}（无向存边），根为 $S$ 中点的 LCA；未涉及点为空。每次调用新建邻接表，可重复调用。
+
+排序与建树复杂度 $\mathcal{O}(k\log k)$，另含 $\mathcal{O}(k)$ 次 LCA 查询。
+
+\begin{lstlisting}
+auto buildVirtualTree = [&](std::vector<int> S) -> std::vector<std::vector<int>> {
+    std::sort(S.begin(), S.end(), [&](const auto& x, const auto& y) {
+        return dfn[x] < dfn[y];
+    });
+    S.erase(std::unique(S.begin(), S.end()), S.end());
+    std::vector<std::vector<int>> vt(n + 1);
+    std::vector<int> stk;
+    auto link = [&](int p, int c){
+        vt[p].push_back(c);
+        vt[c].push_back(p);
+    };
+    for (int u : S){
+        if (stk.empty()){ stk.push_back(u); continue; }
+        int w = lca(stk.back(), u);
+        while ((int)stk.size() >= 2 && dep[w] <= dep[stk[stk.size() - 2]]){
+            link(stk[stk.size() - 2], stk.back());
+            stk.pop_back();
+        }
+        if (stk.back() != w){
+            link(w, stk.back());
+            stk.pop_back();
+            if (stk.empty() || stk.back() != w) stk.push_back(w);
+        }
+        stk.push_back(u);
+    }
+    while ((int)stk.size() >= 2){
+        link(stk[stk.size() - 2], stk.back());
+        stk.pop_back();
+    }
+    return vt;
+};
+\end{lstlisting}

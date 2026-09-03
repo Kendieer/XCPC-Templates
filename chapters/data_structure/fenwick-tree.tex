@@ -1,0 +1,32 @@
+\section{树状数组}
+
+\subsection{普通树状数组}
+
+\noindent 对下标 $1..n$ 的数组做单点修改与前缀和查询（区间和由两次前缀和相减得到）。构造 \texttt{Fenwick(n)} 得到全零数组。
+
+\texttt{add(i,x)} 在位置 $i$ 加 $x$，\texttt{remove(i,x)} 在位置 $i$ 减 $x$；\texttt{presum(i)}（重载的 \texttt{[i]}）返回前缀 $[1,i]$ 之和。单次 $\mathcal{O}(\log n)$，值类型 $T$ 需支持加减与默认零值。
+
+\begin{lstlisting}
+template<typename T>
+struct Fenwick{
+    std::vector<T> value;
+    int size = 0;
+    Fenwick(int n = 0):size(n+1){
+        value.assign(size,T(0));
+    }
+    void add(int i,T x){
+        for (;i < size;i += i&(-i)) value[i] += x;
+    }
+    void remove(int i,T x){
+        for (;i < size;i += i&(-i)) value[i] -= x;
+    }
+    T presum(int i) const {
+        T ans = 0;
+        for (;i;i -= i & (-i)) ans += value[i];
+        return ans;
+    }
+    T operator[](const int i) const {
+        return presum(i);
+    }
+};
+\end{lstlisting}

@@ -1,0 +1,182 @@
+\subsection{Splay 树}
+
+对大小为 $n$ 的 Splay 树做 $m$ 次伸展操作的复杂度是 $\mathcal{O}((n+m)\log n)$ 的，单次均摊复杂度是 $\mathcal{O}(\log n)$ 的。
+
+\begin{lstlisting}
+template <typename T = long long>
+struct Splay{
+    using u32 = unsigned int;
+    std::vector<T> key;
+    u32 head = 0;
+    std::vector<u32> fa,siz,h;
+    std::vector<std::array<u32,2>> son;
+    Splay(){
+        newNode();
+        _siz = 0;
+    }
+    u32 rank(T x){
+        u32 rk = 0,u = head,lst = 0;
+        while (u) {
+            lst = u;
+            if (key[u] < x) {
+                rk += siz[son[u][0]] + 1;
+            }
+            u = son[u][key[u] < x];
+        }
+        splay(lst,0);
+        return rk+1;
+    }
+    void insert(T x){
+        if (head == 0) {
+            u32 v = newNode();
+            head = v;
+            key[v] = x;
+            update(v);
+        } else {
+            u32 lst,i,u = head;
+            while (u) {
+                lst = u;
+                i = !(x < key[u]);
+                u = son[u][i];
+            }
+            u32 v = newNode();
+            son[lst][i] = v;
+            fa[v] = lst;
+            key[v] = x;
+            update(v);
+            update(lst);
+            splay(v,0);
+        }
+    }
+    void remove(T x){
+        u32 rk = rank(x);
+        if (rk == rank(x+1)) return;
+        u32 i = find(rk);
+        splay(i,0);
+        if (son[i][0] == 0 || son[i][1] == 0) {
+            u32 j = son[i][0] == 0;
+            head = son[i][j];
+            delNode(i);
+        } else {
+            u32 j = find(rk+1);
+            assert(son[j][0] == 0); // self check
+            splay(j,i);
+            assert(son[i][1] == j); // self check
+            if (son[i][0]) fa[son[i][0]] = j;
+            son[j][0] = son[i][0];
+            delNode(i);
+            update(j);
+            head = j;
+        }
+        fa[head] = 0;
+    }
+    T index(u32 rk) {
+        u32 i = find(rk);
+        splay(i,0);
+        return key[i];
+    }
+    // STL-like:
+    u32 size() const {
+        return _siz;
+    }
+    u32 height() const {
+        return h[head];
+    }
+    u32 count(T x) {
+        return rank(x+1) - rank(x);
+    }
+    bool contains(T x) {
+        u32 u = head,lst = 0;
+        bool ans = 0;
+        while (u) {
+            lst = u;
+            if (key[u] == x) {
+                ans = 1;
+                break;
+            }
+            u32 i = key[u] < x;
+            u = son[u][i];
+        }
+        splay(lst,0);
+        return ans;
+    }
+    
+private:
+    u32 _siz = 0;
+    std::vector<u32> del;
+    u32 newNode(){
+        u32 cur = 0;
+        if (del.size()){
+            cur = del.back();
+            del.pop_back();
+        } else {
+            cur = key.size();
+            key.emplace_back(0);
+            fa.emplace_back(0);
+            siz.emplace_back(0);
+            h.emplace_back(0);
+            son.emplace_back(std::array<u32,2>({0,0}));
+        }
+        _siz++;
+        return cur;
+    }
+    void delNode(u32 i){
+        del.push_back(i);
+        siz[i] = 0;
+        fa[i] = 0;
+        son[i][0] = son[i][1] = 0;
+        h[i] = 0;
+        _siz--;
+    }
+    u32 find(u32 rank) const {
+        u32 i = head;
+        while (i){
+            if (siz[son[i][0]] + 1 == rank){
+                return i;
+            }
+            if (siz[son[i][0]] + 1 < rank){
+                rank -= siz[son[i][0]] + 1;
+                i = son[i][1];
+            } else {
+                i = son[i][0];
+            }
+        }
+        return 0;
+    }
+    void update(u32 i){
+        if (i <= 0) return;
+        siz[i] = siz[son[i][0]] + siz[son[i][1]] + 1;
+        h[i] = std::max(h[son[i][0]],h[son[i][1]]) + 1;
+    }
+    u32 dir(u32 u) const {
+        return son[fa[u]][1] == u;
+    }
+    void rotate(u32 u){
+        u32 f = fa[u],gf = fa[f];
+        u32 i = dir(u);
+        son[f][i] = son[u][!i];
+        if (son[f][i]) fa[son[f][i]] = f;
+        son[u][!i] = f;
+        if (gf) {
+            u32 gi = dir(f);
+            son[gf][gi] = u;
+        }
+        fa[f] = u;
+        fa[u] = gf;
+        update(f);
+        update(u);
+    }
+    void splay(u32 u,u32 rt){
+        if (u == 0) return;
+        u32 f = fa[u];
+        while (f != rt) {
+            if (fa[f] != rt) {
+                rotate(dir(f) == dir(u) ? f : u);
+            }
+            rotate(u);
+            f = fa[u];
+        }
+        if (!rt) head = u;
+    }
+};
+\end{lstlisting}

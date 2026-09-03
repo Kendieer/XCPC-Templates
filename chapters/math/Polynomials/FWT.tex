@@ -1,0 +1,147 @@
+\section{快速沃尔什变换(FWT)以及位运算卷积全家桶}
+
+需要 \texttt{ModInt} 取模类，模数固定为 $998244353$。
+
+\subsection{基础位运算卷积}
+
+适合计算以下情况：
+
+\begin{itemize}
+    \item $F[k] = \sum_{i\oplus j=k} A_i B_j$。
+    \item $F[k] = \sum_{i\cup j=k} A_i B_j$。
+    \item $F[k] = \sum_{i\cap j=k} A_i B_j$。
+\end{itemize}
+
+时间复杂度为 $\mathcal{O}(n\log n)$。序列长度自动补零至 $2$ 的幂；\texttt{|=}、\texttt{\&=}、\texttt{\^=} 分别计算 $\cup$、$\cap$、$\oplus$ 卷积。
+
+\begin{lstlisting}
+struct FWT{
+    using Z = ModInt<998244353>;
+    using Poly = std::vector<Z>;
+    Poly ele;
+    int siz = 0;
+    FWT(int n){
+        while (n & (n - 1)) n += n & -n;
+        siz = n;
+        ele.resize(n);
+    }
+    Z& operator[](int idx){return ele[idx];}
+    void OR(int sign = 1){
+        for (int len = 2;len <= siz;len <<= 1){
+            int mid = len >> 1;
+            for (int l = 0;l < siz;l += len){
+                for (int i = l,j = l + mid;j < l + len;i++,j++){
+                    ele[j] += ele[i] * sign;
+                }
+            }
+        }
+    }
+    void AND(int sign = 1){
+        for (int len = 2;len <= siz;len <<= 1){
+            int mid = len >> 1;
+            for (int l = 0;l < siz;l += len){
+                for (int i = l,j = l + mid;j < l + len;i++,j++){
+                    ele[i] += ele[j] * sign;
+                }
+            }
+        }
+    }
+    void XOR(int sign = 1){
+        Z inv2 = ~Z(2);
+        for (int len = 2;len <= siz;len <<= 1){
+            int mid = len >> 1;
+            for (int l = 0;l < siz;l += len){
+                for (int i = l,j = l + mid;j < l + len;i ++,j ++){
+                    Z x = ele[i],y = ele[j];
+                    ele[i] = x+y;
+                    ele[j] = x-y;
+                    if (sign == -1) ele[i] *= inv2,ele[j] *= inv2;
+                }
+            }
+        }
+    }
+    FWT& operator|=(FWT rhs){
+        if (rhs.siz > siz) {
+            ele.resize(rhs.siz);
+            siz = rhs.siz;
+        } else if (siz > rhs.siz) {
+            rhs.ele.resize(siz);
+            rhs.siz = siz;
+        }
+        OR(1),rhs.OR(1);
+        for (int i = 0;i < siz;i++) ele[i] *= rhs[i];
+        OR(-1);
+        return *this;
+    }
+    FWT& operator&=(FWT rhs){
+        if (rhs.siz > siz) {
+            ele.resize(rhs.siz);
+            siz = rhs.siz;
+        } else if (siz > rhs.siz) {
+            rhs.ele.resize(siz);
+            rhs.siz = siz;
+        }
+        AND(1),rhs.AND(1);
+        for (int i = 0;i < siz;i++) ele[i] *= rhs[i];
+        AND(-1);
+        return *this;
+    }
+    FWT& operator^=(FWT rhs){
+        if (rhs.siz > siz) {
+            ele.resize(rhs.siz);
+            siz = rhs.siz;
+        } else if (siz > rhs.siz) {
+            rhs.ele.resize(siz);
+            rhs.siz = siz;
+        }
+        XOR(1),rhs.XOR(1);
+        for (int i = 0;i < siz;i++) ele[i] *= rhs[i];
+        XOR(-1);
+        return *this;
+    }
+    friend FWT operator|(FWT lhs,const FWT& rhs){
+        return lhs |= rhs;
+    }
+    friend FWT operator&(FWT lhs,const FWT& rhs){
+        return lhs &= rhs;
+    }
+    friend FWT operator^(FWT lhs,const FWT& rhs){
+        return lhs ^= rhs;
+    }
+};
+\end{lstlisting}
+
+\subsection{子集卷积}
+
+前置模板：\textbf{\texttt{基础位运算卷积}}。
+
+用于计算 $C[k]=\sum_{i\cup j=k,\ i\cap j=\varnothing}A_iB_j$，即两子集不相交。
+
+两序列长度可不同，时间复杂度为 $\mathcal{O}(n\log^2n)$。
+
+\begin{lstlisting}
+#define popcnt(i) __builtin_popcount(i)
+FWT subset(FWT a,FWT b){
+    int lmt = std::__lg(std::max(a.siz,b.siz));
+    int n = 1 << lmt;
+    std::vector<FWT> PA(lmt+1,FWT(n));
+    auto PB(PA),PC(PA);
+    for (int i = 0;i < a.siz;i++) PA[popcnt(i)][i] = a[i];
+    for (int i = 0;i < b.siz;i++) PB[popcnt(i)][i] = b[i];
+    for (int i = 0;i <= lmt;i++){
+        PA[i].OR(1),PB[i].OR(1);
+    }
+    for (int i = 0;i <= lmt;i++){
+        for (int j = 0;j <= i;j++){
+            for (int k = 0;k < n;k++){
+                PC[i][k] += PA[j][k] * PB[i-j][k];
+            }
+        }
+    }
+    for (int i = 0;i <= lmt;i++) PC[i].OR(-1);
+    FWT c(n);
+    for (int i = 0;i < n;i++) c[i] = PC[popcnt(i)][i];
+    return c;
+}
+#undef popcnt
+\end{lstlisting}

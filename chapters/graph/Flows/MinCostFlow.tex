@@ -1,0 +1,183 @@
+\subsection{网络费用流}
+
+\subsubsection{基于 EK 的 SSP 算法}
+
+每次用 SPFA 找最短路（按费用）增广，基于 \texttt{EdmondsKarp}。复杂度上界 $\mathcal{O}(f\cdot nm)$，$f$ 为最大流值。
+
+\begin{lstlisting}
+using i64 = long long;
+using p64 = std::array<i64,2>;
+constexpr i64 INF = 1e18;
+struct SSP {
+    int n;
+    struct Edge {
+        int to = 0,nxt = 0;
+        i64 f = 0,c = 0,w = 0;
+    };
+    std::vector<int> head,fr;
+    std::vector<Edge> edge;
+    std::vector<i64> dis;
+    std::vector<bool> vis;
+    SSP(int _n):n(_n),head(n+1),edge(2),fr(n+1),dis(n+1),vis(n+1){}
+    void addEdge(int u,int v,i64 f,i64 c,i64 w){
+        edge.push_back({v,head[u],f,c,w});
+        head[u] = edge.size() - 1;
+    }
+    void connect(int u,int v,i64 c,i64 w){
+        addEdge(u,v,c,c,w);
+        addEdge(v,u,0,c,-w);
+    }
+    p64 work(int s,int t){
+        p64 ans = {0,0};
+        while (1) {
+            std::queue<int> que;
+            que.push(s);
+            std::fill(fr.begin(),fr.end(),0);
+            std::fill(vis.begin(),vis.end(),0);
+            std::fill(dis.begin(),dis.end(),INF);
+            dis[s] = 0,vis[s] = 1;
+            while (!que.empty()) {
+                int u = que.front();
+                que.pop();
+                vis[u] = 0;
+                for (int e = head[u];e;e = edge[e].nxt){
+                    i64 f = edge[e].f,w = edge[e].w;
+                    int v = edge[e].to;
+                    if (f > 0 && dis[u] + w < dis[v]){
+                        dis[v] = dis[u] + w;
+                        fr[v] = e^1;
+                        if (!vis[v]){
+                            que.push(v);
+                            vis[v] = 1;
+                        }
+                    }
+                }
+            }
+            if (dis[t] >= INF) break;
+            i64 mn = INF;
+            for (int u = t;u != s;u = edge[fr[u]].to){
+                mn = std::min(mn,edge[fr[u] ^ 1].f);
+            }
+            for (int u = t;u != s;u = edge[fr[u]].to){
+                edge[fr[u]].f += mn;
+                edge[fr[u] ^ 1].f -= mn;
+            }
+            ans[0] += mn;
+            ans[1] += dis[t] * mn;
+        }
+        return ans;
+    }
+};
+\end{lstlisting}
+
+\subsubsection{基于 Dinic 的 SSP 算法（Dijkstra 势能优化）}
+
+先用 SPFA 求初始势能 $h$，再用势能将费用化为非负后跑 Dijkstra 找增广路，基于 \texttt{Dinic}。复杂度上界 $\mathcal{O}(f\cdot m\log n)$，$f$ 为最大流值。
+
+注意：以上两种算法均无法处理带负环费用的最小费用最大流。
+
+\begin{lstlisting}
+using i64 = long long;
+using p64 = std::array<i64,2>;
+constexpr i64 INF = 1e18;
+struct MinCostFlow {
+    int n;
+    struct Edge {
+        int to = 0,nxt = 0;
+        i64 f = 0,c = 0,w = 0;
+    };
+    std::vector<int> head,now;
+    std::vector<Edge> edge;
+    std::vector<i64> dis,h;
+    std::vector<bool> vis;
+    MinCostFlow (int _n):n(_n),head(n+1),edge(2),now(n+1),dis(n+1),h(n+1),vis(n+1){}
+    void addEdge(int u,int v,i64 f,i64 c,i64 w){
+        edge.push_back({v,head[u],f,c,w});
+        head[u] = edge.size() - 1;
+    }
+    void connect(int u,int v,i64 c,i64 w){
+        addEdge(u,v,c,c,w);
+        addEdge(v,u,0,c,-w);
+    }
+    void SPFA(int s,int t){
+        std::fill(h.begin(),h.end(),INF);
+        std::fill(vis.begin(),vis.end(),0);
+        std::queue<int> que;
+        que.push(s);
+        h[s] = 0,vis[s] = 1;
+        while (!que.empty()){
+            int u = que.front();
+            que.pop();
+            vis[u] = 0;
+            for (int e = head[u];e;e = edge[e].nxt){
+                i64 f = edge[e].f,w = edge[e].w;
+                int v = edge[e].to;
+                if (f > 0 && h[u] + w < h[v]){
+                    h[v] = h[u] + w;
+                    if (!vis[v]) {
+                        que.push(v);
+                        vis[v] = 1;
+                    }
+                }
+            }
+        }
+    }
+    bool dijkstra(int s,int t){
+        std::fill(dis.begin(),dis.end(),INF);
+        std::fill(vis.begin(),vis.end(),0);
+        std::priority_queue<p64> pq;
+        pq.push({0,s});
+        dis[s] = 0;
+        while (!pq.empty()){
+            auto [dist,u] = pq.top();
+            pq.pop();
+            if (vis[u]) continue;
+            vis[u] = 1;
+            for (int e = head[u];e;e = edge[e].nxt){
+                int v = edge[e].to;
+                i64 w = edge[e].w,f = edge[e].f;
+                if (f > 0 && dis[u] + w + h[u] - h[v] < dis[v]){
+                    dis[v] = dis[u] + w + h[u] - h[v];
+                    pq.push({-dis[v],v});
+                }
+            }
+        }
+        return vis[t];
+    }
+    i64 dfs(int u,const int& t,i64 flow,i64 &cost){
+        if (u == t) return flow;
+        i64 sum = 0;
+        vis[u] = 1;
+        for (int e = now[u];e;e = edge[e].nxt){
+            now[u] = e;
+            int v = edge[e].to;
+            i64 f = edge[e].f,w = edge[e].w;
+            if (f > 0 && !vis[v] && h[v] == h[u] + w) {
+                i64 f2 = dfs(v,t,std::min(f,flow),cost);
+                edge[e].f -= f2;
+                edge[e^1].f += f2;
+                sum += f2;
+                flow -= f2;
+                cost += f2 * w;
+                if (flow == 0) break;
+            }
+        }
+        vis[u] = 0;
+        return sum;
+    }
+    p64 work(int s,int t){
+        p64 ans = {0,0};
+        SPFA(s,t);
+        while (dijkstra(s,t)){
+            std::fill(vis.begin(),vis.end(),0);
+            for (int i = 0;i <= n;i++){
+                h[i] += dis[i];
+                now[i] = head[i];
+            }
+            ans[0] += dfs(s,t,INF,ans[1]);
+        }
+        return ans;
+    }
+};
+\end{lstlisting}
+

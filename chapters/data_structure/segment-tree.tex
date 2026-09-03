@@ -1,0 +1,353 @@
+\section{线段树}
+
+\subsection{静态线段树}
+
+支持区间修改、区间查询。\texttt{Info} 与 \texttt{Tag} 需按题目自实现，区间端点 $l,r$ 由树自动维护。
+
+\texttt{Info} 存区间聚合值，需重载 \texttt{operator+} 合并两个相邻子区间、提供 \texttt{apply(Tag)} 作整段修改；\texttt{Tag} 为懒标记，需提供 \texttt{apply(Tag)} 叠加标记，默认构造表示无待下传标记。
+
+构造 \texttt{SegmentTree(n)} 得全零树，或传下标 $1..n$（大小 $n+1$）的初值数组建树。\texttt{modify(l,r,tag)} 区间整体修改；\texttt{seg(l,r)} 返回 $[l,r]$ 的聚合值，越界下标自动夹到 $[1,n]$。单次 $\mathcal{O}(\log n)$。
+
+\begin{lstlisting}
+template<typename Info,typename Tag>
+struct SegmentTree{
+private:
+    int _n = 0;
+    std::vector<Info> _info;
+    std::vector<Tag> _tag;
+public:
+    SegmentTree(int n = 0){
+        rebuild(n);
+    }
+    SegmentTree(const std::vector<Info>& v){
+        assert(v.size() >= 1);
+        rebuild(v.size() - 1,v);
+    }
+    void rebuild(int n,const std::vector<Info>& v = std::vector<Info>(0)){
+        _n = n;
+        _info.assign((_n + 2) << 2,Info());
+        _tag.assign((_n + 2) << 2,Tag());
+        if (n > 0) build(1,1,n,v);
+    }
+private:
+    void build(int i,int l,int r,const std::vector<Info>& v){
+        if(l == r){
+            if (v.size() > l) _info[i] = v[l];
+            resize(_info[i],l,r);
+            return;
+        }
+        int mid = l + r >> 1;
+        build(i << 1,l,mid,v);
+        build(i << 1 | 1,mid + 1,r,v);
+        push_up(i,l,r);
+    }
+    void resize(Info& info,int l,int r){
+        info.l = l;
+        info.r = r;
+    }
+    void push_down(int i){
+        _info[i << 1].apply(_tag[i]);
+        _info[i << 1 | 1].apply(_tag[i]);
+        _tag[i << 1].apply(_tag[i]);
+        _tag[i << 1 | 1].apply(_tag[i]);
+        _tag[i] = Tag();
+    }
+    void push_up(int i,int l,int r){
+        _info[i] = _info[i << 1] + _info[i << 1 | 1];
+        resize(_info[i],l,r);
+    }
+    void modify(int i,const Tag& val,int l,int r,int ql,int qr){
+        if (ql <= l && r <= qr) {
+            _info[i].apply(val);
+            _tag[i].apply(val);
+            return;
+        }
+        push_down(i);
+        int mid = l + r >> 1;
+        if (ql <= mid) modify(i << 1, val, l, mid, ql, qr);
+        if (qr > mid) modify(i << 1 | 1, val, mid+1, r, ql, qr);
+        push_up(i,l,r);
+    }
+    Info ask(int i,int l,int r,int ql,int qr){
+        if (ql <= l && r <= qr) {
+            return _info[i];
+        }
+        push_down(i);
+        int mid = l + r >> 1;
+        if (qr <= mid) return ask(i << 1, l, mid, ql, qr);
+        else if (ql > mid)return ask(i << 1 | 1, mid+1, r, ql, qr);
+        Info res = ask(i << 1, l, mid, ql, qr);
+        res = res + ask(i << 1 | 1, mid+1, r, ql, qr);
+        resize(res,std::max(ql,l),std::min(qr,r));
+        return res;
+    }
+public:
+    void modify(int l,int r,const Tag& val){
+        if (l > r) return;
+        modify(1,val,1,_n,std::max(1,l),std::min(r,_n));
+    }
+    Info operator()(int l,int r){
+        if (l > r) return Info();
+        return ask(1,1,_n,std::max(1,l),std::min(r,_n));
+    }
+};
+
+struct Tag{
+    Tag(){}
+    void apply(const Tag& t){
+        
+    }
+};
+
+struct Info{
+    int l = 1,r = 0;
+    
+    Info(){}
+    void apply(const Tag& t){
+        
+    }
+    
+    friend Info operator+(const Info& lhs,const Info& rhs){
+        Info res;
+        return res;
+    }
+};
+\end{lstlisting}
+
+\subsection{开点线段树}
+
+\noindent 值域 $[1,n]$ 可极大（如 $10^{18}$）或整体稀疏时使用，只给被访问到的区间分配结点，单次修改/查询都只新建 $\mathcal{O}(\log n)$ 个结点。\texttt{Info}、\texttt{Tag} 的实现要求与静态版相同；构造 \texttt{SegmentTree<Info,Tag>(n)} 后，\texttt{modify(l,r,tag)} 与 \texttt{seg(l,r)} 的语义同静态版，$n$ 的类型为 \texttt{long long}。
+
+\begin{lstlisting}
+template<typename Info,typename Tag>
+struct SegmentTree{
+private:
+    long long _n = 0;
+    int _cur = 0,_root = 0;
+    std::vector<Info> _info;
+    std::vector<Tag> _tag;
+    std::vector<int> _lc,_rc;
+
+    void resize(Info& info,long long l,long long r){
+        info.l = l;
+        info.r = r;
+    }
+    int new_node(long long l,long long r){
+        _cur++;
+        _info.push_back(Info());
+        _tag.push_back(Tag());
+        _lc.push_back(-1);
+        _rc.push_back(-1);
+        resize(_info[_cur],l,r);
+        return _cur;
+    }
+    void push_down(int u,long long l,long long r,long long mid) {
+        if(_lc[u]<0){
+            _lc[u] = new_node(l,mid);
+        }
+        if(_rc[u]<0){
+            _rc[u] = new_node(mid + 1,r);
+        }
+        _info[_lc[u]].apply(_tag[u]);
+        _tag[_lc[u]].apply(_tag[u]);
+        _info[_rc[u]].apply(_tag[u]);
+        _tag[_rc[u]].apply(_tag[u]);
+        _tag[u] = Tag();
+    }
+    void push_up(int u,long long l,long long r){
+        _info[u] = _info[_lc[u]] + _info[_rc[u]];
+        resize(_info[u],l,r);
+    }
+    void modify(int u,const Tag& val,long long l,long long r,long long ql,long long qr){
+        if (u<0) u = new_node(l,r);
+        if (ql <= l && r <= qr) {
+            _info[u].apply(val);
+            _tag[u].apply(val);
+            return;
+        }
+        long long mid = l + r >> 1;
+        push_down(u,l,r,mid);
+        if (ql <= mid) modify(_lc[u], val, l, mid, ql, qr);
+        if (qr > mid) modify(_rc[u], val, mid+1, r,ql, qr);
+        push_up(u,l,r);
+    }
+    Info ask(int u,long long l,long long r,long long ql,long long qr){
+        if (u<0) u = new_node(l,r);
+        if (ql <= l && r <= qr) {
+            return _info[u];
+        }
+        long long mid = l + r >> 1;
+        push_down(u,l,r,mid);
+        if (qr <= mid) return ask(_lc[u], l, mid, ql, qr);
+        else if (ql > mid)return ask(_rc[u], mid+1, r, ql, qr);
+        Info res = ask(_lc[u], l, mid, ql, qr);
+        res = res + ask(_rc[u], mid+1, r, ql, qr);
+        resize(res,std::max(ql,l),std::min(qr,r));
+        return res;
+    }
+public:
+    SegmentTree(long long n){
+        _cur = _root = -1;
+        _n = n;
+        _root = new_node(1,_n);
+    }
+    void modify(long long l,long long r,const Tag& val){
+        if (l > r) return;
+        modify(_root,val,1,_n,l,r);
+    }
+    Info operator()(long long l,long long r){
+        if (l > r) return Info();
+        return ask(_root,1,_n,l,r);
+    }
+};
+
+struct Tag{
+    
+    Tag(){}
+    void apply(const Tag& t){
+        
+    }
+};
+
+struct Info{
+    long long l = 1,r = 0;
+    
+    Info(){}
+    
+    void apply(const Tag& t){
+        
+    }
+    
+    friend Info operator+(const Info& lhs,const Info& rhs){
+        Info res;
+        
+        return res;
+    }
+};
+\end{lstlisting}
+
+\subsection{可持久化线段树}
+
+支持保留历史版本，各版本可独立查询、继续修改。0 号版本为 \texttt{rebuild(n)} 建立的初始版本；\texttt{modify(ver,l,r,tag)} 以第 \texttt{ver} 个版本为基础修改并返回新版本编号（旧版本不变），之后用返回的编号继续操作即形成版本链。\texttt{seg(ver,l,r)}（\texttt{operator()}）查询第 \texttt{ver} 个版本的 $[l,r]$。该实现不做标记永久化，查询时沿路径累计标记。时间与空间复杂度均为 $\mathcal{O}((n+q)\log n)$。
+
+\begin{lstlisting}
+template<typename Info,typename Tag>
+struct PersistentSegmentTree {
+    int _n = 0;
+    int _cur = 0;
+    std::vector<int> roots;
+    std::vector<Info> _info;
+    std::vector<Tag> _tag;
+    std::vector<int> _lc;
+    std::vector<int> _rc;
+    void resize(Info& info,int l,int r){
+        info.l = l;
+        info.r = r;
+    }
+    int new_node(int u,int l=-1,int r=-1){
+        int v = _cur++;
+        _info.emplace_back(_info[u]);
+        _tag.emplace_back(_tag[u]);
+        _lc.push_back(u>0?_lc[u]:0);
+        _rc.push_back(u>0?_rc[u]:0);
+        if(u==0)resize(_info[v],l,r);
+        return v;
+    }
+    void push_down(int u,int l,int r,int mid) {
+        _lc[u] = new_node(_lc[u],l,mid);
+        _rc[u] = new_node(_rc[u],mid+1,r);
+        _info[_lc[u]].apply(_tag[u]);
+        _tag[_lc[u]].apply(_tag[u]);
+        _info[_rc[u]].apply(_tag[u]);
+        _tag[_rc[u]].apply(_tag[u]);
+        _tag[u] = Tag();
+    }
+    void push_up(int u){
+        _info[u] = _info[_lc[u]] + _info[_rc[u]];
+    }
+    void modify(int u,const Tag& val,int l,int r,int ql,int qr){
+        int v = u;
+        if (ql <= l && r <= qr) {
+            _info[v].apply(val);
+            _tag[v].apply(val);
+            return;
+        }
+        int mid = l + r >> 1;
+        push_down(v,l,r,mid);
+        if (ql <= mid)modify(_lc[v],val,l,mid,ql,qr);
+        if (qr  > mid)modify(_rc[v],val,mid+1,r,ql,qr);
+        push_up(v);
+        resize(_info[v],l,r);
+        return;
+    }
+    Info ask(int u,Tag val,int l,int r,int ql,int qr){
+        if (u == 0) {
+            Info res;
+            resize(res,std::max(ql,l),std::min(qr,r));
+            res.apply(val);
+            return res;
+        }
+        if (ql <= l && r <= qr) {
+            Info res = _info[u];
+            res.apply(val);
+            return res;
+        }
+        val.apply(_tag[u]);
+        int mid = l + r >> 1;
+        if (qr <= mid) {
+            return ask(_lc[u],val,l,mid,ql,qr);
+        } else if (ql > mid) {
+            return ask(_rc[u],val,mid+1,r,ql,qr);
+        } else {
+            Info left = ask(_lc[u],val,l,mid,ql,qr);
+            Info right = ask(_rc[u],val,mid+1,r,ql,qr);
+            Info res = left + right;
+            resize(res,std::max(ql,l),std::min(qr,r));
+            return res;
+        }
+    }
+public:
+    PersistentSegmentTree(int n = 0){
+        rebuild(n);
+    }
+    void rebuild(int n){
+        _n = n;
+        _cur = 1;
+        roots.clear();
+        _info.assign(1,Info());
+        _tag.assign(1,Tag());
+        _lc.assign(1,0);
+        _rc.assign(1,0);
+        roots.push_back(new_node(0,1,_n));
+    }
+    int modify(int ver,int l,int r,const Tag& val){
+        if (l > r) return ver;
+        int new_root = new_node(roots[ver]);
+        modify(new_root,val,1,_n,l,r);
+        roots.push_back(new_root);
+        return (int)roots.size()-1;
+    }
+    Info operator()(int ver,int l,int r){
+        if (l > r) return Info();
+        return ask(roots[ver],Tag(),1,_n,l,r);
+    }
+};
+struct Tag{
+    
+    Tag(){}
+    void apply(const Tag& t){
+
+    }
+};
+struct Info{
+    int l = 1,r = 0;
+    
+    Info(){}
+    void apply(const Tag& t){
+    }
+    friend Info operator+(const Info& lhs,const Info& rhs){
+        Info res;
+        return res;
+    }
+};
+\end{lstlisting}

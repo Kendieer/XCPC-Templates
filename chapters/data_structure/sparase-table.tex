@@ -1,0 +1,36 @@
+\section{ST 表}
+
+对静态序列的区间查询，$\odot$ 需满足结合律且可重复贡献（幂等，$A\odot A=A$），如 $\min/\max/\gcd$；区间和等不幂等的运算不可用（两块区间覆盖部分会被重复贡献）。预处理 $\mathcal{O}(n\log n)$，单次查询 $\mathcal{O}(1)$。
+
+\begin{lstlisting}
+template<typename T,typename Opt>
+struct SparseTable {
+private:
+    std::vector<std::vector<T>> st;
+    Opt op;
+public:
+    SparseTable() = default;
+    SparseTable(const std::vector<T>& ele, int beg, Opt _op) : op(std::move(_op)) {
+        build(ele, beg);
+    }
+    void build(const std::vector<T>& ele, int beg) {
+        int n = ele.size() - 1;
+        int len = n - beg + 1;
+        if (len <= 0) return;
+        int p = __lg(len);
+        st.assign(n + 1, std::vector<T>(p + 1));
+        for (int i = beg; i <= n; i++) st[i][0] = ele[i];
+        for (int j = 1; j <= p; j++) {
+            for (int i = beg; i + (1 << j) - 1 <= n; i++) {
+                st[i][j] = op(st[i][j - 1], st[i + (1 << (j - 1))][j - 1]);
+            }
+        }
+    }
+    T operator()(int l, int r) const {
+        int p = __lg(r - l + 1);
+        return op(st[l][p], st[r - (1 << p) + 1][p]);
+    }
+};
+\end{lstlisting}
+
+类 \texttt{SparseTable} 以 $[beg,n]$（$n=$ 数组长度 $-1$，$beg$ 前下标不参与）为有效区间建表：构造函数接收元素数组、$beg$ 与结合运算 \texttt{op}（如 \texttt{std::min}、\texttt{std::max}、\texttt{std::gcd}），构造即建表；对同一 \texttt{op} 更换数组可再调 \texttt{build} 重建。用对象 $t$ 做 $t(l,r)$ 查询（重载了 \texttt{operator()}）返回 $[l,r]$ 的运算结果，要求 $beg\le l\le r\le n$。

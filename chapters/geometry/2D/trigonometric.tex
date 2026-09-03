@@ -1,0 +1,32 @@
+\subsection{极角与三角函数}
+
+弧度制工具。\verb|Polar(x,y)| 坐标转极角，值域 $[0,2\pi)$（原点会 \texttt{assert}）。\verb|toRadian| 把角度制转为弧度制。\verb|getAngle(rad1,rad2)|：求从 $rad1$ 逆时针转到 $rad2$ 的夹角（弧度，$[0,2\pi)$ 内），两参数需先化为 $[0,2\pi)$。
+
+\verb|arcLength(r,a)|、\verb|sectorArea(r,a)| 分别返回半径 $r$、角 $a$ 的圆弧长与扇形面积，$a$ 缺省为整圆 $2\pi$。
+
+\begin{lstlisting}
+namespace Trigonometric{ // 三角函数
+    using f64 = long double;
+    const f64 PI = std::acos(-1.0);
+    f64 toRadian(f64 angle){ // 角度制转弧度制
+        return PI*angle/180;
+    }
+    f64 Polar(f64 x,f64 y){ // 坐标转极角(弧度制)，值域[0,2PI)
+        assert(x || y);// 坐标原点不存在极角
+        if (x == 0) return (y > 0 ? 0.5 : 1.5) * PI;
+        if (y == 0) return (x > 0 ? 0.0 : 1.0) * PI;
+        f64 ATAN = std::atan(y/x);
+        if (ATAN < 0) ATAN += PI;
+        return (y > 0 ? 0 : PI) + ATAN;
+    }
+    f64 getAngle(f64 rad1,f64 rad2){ // x1->x2 求逆时针夹角弧度
+        return rad2 - rad1 + (rad1 > rad2 ? 2*PI : 0);
+    }
+    f64 arcLength(f64 radius,f64 angle = 2*PI){ // 求指定角度(弧度制)和半径的弧长
+        return angle*radius;
+    }
+    f64 sectorArea(f64 radius,f64 angle = 2*PI){ // 扇形面积(弧度制)
+        return arcLength(radius,angle)*radius/2;
+    }
+}
+\end{lstlisting}

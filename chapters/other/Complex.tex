@@ -1,0 +1,61 @@
+\section{复数}
+
+\verb|Complex<T>|：自定义复数，重载四则与 \verb|Pow|（快速幂），常数比 \texttt{std::complex} 小；$T$ 常取 \texttt{double}。常用于 FFT、二次剩余等场合。
+
+\begin{lstlisting}
+template<typename T>
+struct Complex{
+    T real,imag;
+    Complex(T x = 0,T y = 0):real(x),imag(y){}
+    constexpr Complex& operator+=(const Complex &x){
+        real += x.real,imag += x.imag;
+        return *this;
+    }
+    constexpr Complex& operator-=(const Complex &x){
+        real -= x.real,imag -= x.imag;
+        return *this;
+    }
+    constexpr Complex& operator*=(const Complex &x){
+        T rl = real * x.real - imag * x.imag;
+        imag = x.imag * real + x.real * imag;
+        real = rl;
+        return *this;
+    }
+    constexpr Complex& operator/=(const Complex &x){
+        T div = x.real * x.real + x.imag * x.imag;
+        T rl = (real*x.real+imag*x.imag) / div;
+        imag = (x.real * imag - real * x.imag) / div;
+        real = rl;
+        return *this;
+    }
+    constexpr friend Complex operator+(const Complex& x,const Complex& y){
+        Complex r = x;
+        return (r += y);
+    }
+    constexpr friend Complex operator-(const Complex& x,const Complex& y){
+        Complex r = x;
+        return (r -= y);
+    }
+    constexpr friend Complex operator*(const Complex& x,const Complex& y){
+        Complex r = x;
+        return (r *= y);
+    }
+    constexpr friend Complex operator/(const Complex& x,const Complex& y){
+        Complex r = x;
+        return (r /= y);
+    }
+    constexpr friend std::ostream& operator<<(std::ostream& os,const Complex& x){
+        return os << x.real << "+" << x.imag << "i";
+    }
+    constexpr friend std::istream& operator>>(std::istream& is,Complex& x){
+        return is >> x.real >> x.imag;
+    }
+    constexpr static Complex Pow(Complex x,long long p){
+        Complex res = {1,0};
+        for (;p;p >>= 1,x *= x){
+            if (p&1) res *= x;
+        }
+        return res;
+    }
+};
+\end{lstlisting}
