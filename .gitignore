@@ -22,3 +22,6 @@ main.pdf.*
 
 # stray working notes (not part of the book)
 chapters/strings/raw.md
+
+# release PDFs live as GitHub Release assets, not in the repo
+/results/
