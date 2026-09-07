@@ -1,0 +1,52 @@
+\section{莫比乌斯函数}
+
+$\mu(x)$：$\mu(1)=1$；$x$ 含平方因子时 $\mu(x)=0$；否则 $\mu(x)=(-1)^k$，其中 $k$ 为 $x$ 的不同质因子个数。
+
+\begin{lstlisting}
+constexpr int N = 1e7 + 7;
+std::bitset<N> np;
+std::array<int,N> mu;
+std::vector<int> primes;
+void Sieve(){
+    std::fill(mu.begin(),mu.end(),0);
+    mu[1] = 1;
+    for (int i = 2;i < N;i++){
+        if (!np[i]) {
+            primes.push_back(i);
+            mu[i] = -1;
+        }
+        for (int p : primes){
+            if (p * i >= N) break;
+            np[p * i] = 1;
+            if (i % p == 0) break;
+            else mu[p * i] = -mu[i];
+        }
+    }
+}
+\end{lstlisting}
+
+\verb|Sieve()| 线性筛预处理，复杂度 $\mathcal{O}(N)$。调用一次后 \texttt{mu[i]} 为 $\mu(i)$、\texttt{np[i]} 标记 $i\ge 2$ 是否为合数，并顺带得到质数表 \texttt{primes}；$N$ 在编译期确定，一般取 $10^7$ 量级。
+
+莫比乌斯反演把“约数求和式”翻回单个函数：
+\[ f(n)=\sum_{d\mid n}g(d)\quad\Longrightarrow\quad g(n)=\sum_{d\mid n}\mu(d)\,f\!\left(\frac nd\right). \]
+由 $\sum_{d\mid n}\mu(d)=[n=1]$ 可把互质条件化为枚举 $d$：
+\[ [\gcd(a,b)=1]=\sum_{d\mid\gcd(a,b)}\mu(d). \]
+后者常配合整除分块，把形如 $\sum[\gcd(i,j)=1]\,\cdots$ 的和式按 $\left\lfloor\frac nd\right\rfloor$ 相同的段批量计算。
+
+例如：下述代码可以在 $\sqrt{\min(n,m)}$ 的时间复杂度下计算 $\sum_{i}^{n}\sum_{j}^{m}[\gcd(i,j)=k]$ 的结果，其中 $[x]$ 表示艾弗森括号，\verb|premu| 表示莫比乌斯函数前缀和。
+
+\begin{lstlisting}
+auto cal = [](int n,int m,int k)->i64 {
+    n /= k,m /= k;
+    if (n > m) swap(n,m);
+    i64 ans = 0;
+    for (int l = 1,r;l <= n;l = r){
+        int r1 = n / (n / l) + 1;
+        int r2 = m / (m / l) + 1;
+        r = min(r1,r2);
+        i64 c1 = n / l,c2 = m / l;
+        ans += (premu[r-1] - premu[l-1]) * c1 * c2;
+    }
+    return ans;
+};
+\end{lstlisting}

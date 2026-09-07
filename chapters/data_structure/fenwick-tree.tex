@@ -4,15 +4,16 @@
 
 \noindent 对下标 $1..n$ 的数组做单点修改与前缀和查询（区间和由两次前缀和相减得到）。构造 \texttt{Fenwick(n)} 得到全零数组。
 
-\texttt{add(i,x)} 在位置 $i$ 加 $x$，\texttt{remove(i,x)} 在位置 $i$ 减 $x$；\texttt{presum(i)}（重载的 \texttt{[i]}）返回前缀 $[1,i]$ 之和。单次 $\mathcal{O}(\log n)$，值类型 $T$ 需支持加减与默认零值。
+\texttt{add(i,x)} 在位置 $i$ 加 $x$，\texttt{remove(i,x)} 在位置 $i$ 减 $x$；\texttt{presum(i)}（重载的 \texttt{[i]}）返回前缀 $[1,i]$ 之和。单次 $\mathcal{O}(\log n)$，值类型 $T$ 需支持加减与默认零值；当 $T$ 取整型做桶计数时，还可 \texttt{kth} 倍增二分第 $k$ 小（见「特化 \texttt{int} 的树状数组二分」）。
 
 \begin{lstlisting}
 template<typename T>
 struct Fenwick{
     std::vector<T> value;
-    int size = 0;
+    int size = 0, top = 1;
     Fenwick(int n = 0):size(n+1){
         value.assign(size,T(0));
+        while ((top << 1) < size) top <<= 1;
     }
     void add(int i,T x){
         for (;i < size;i += i&(-i)) value[i] += x;
@@ -28,5 +29,52 @@ struct Fenwick{
     T operator[](const int i) const {
         return presum(i);
     }
+    int kth(int k) const {
+        int p = 0;
+        for (int bit = top;bit;bit >>= 1)
+            if (p + bit < size && value[p + bit] < k){
+                p += bit;
+                k -= value[p];
+            }
+        return p + 1;
+    }
 };
+\end{lstlisting}
+
+\subsection{二维树状数组}
+
+对 $n$ 行 $m$ 列、行列下标均从 $1$ 起的矩阵做单点加与矩形和。构造 \texttt{Fenwick2D(n,m)} 得全零矩阵；\texttt{add(x,y,v)} 在 $(x,y)$ 处加 $v$，\texttt{presum(x,y)} 返回以 $(1,1)$、$(x,y)$ 为对角顶点的子矩形元素和。任意 $[x_1,x_2]\times[y_1,y_2]$ 的矩形和为 $S(x_2,y_2)-S(x_1-1,y_2)-S(x_2,y_1-1)+S(x_1-1,y_1-1)$，其中 $S(x,y)$ 即 \texttt{presum(x,y)}。单次 $\mathcal{O}(\log n\log m)$，空间 $\mathcal{O}(nm)$，只适合两维都较小、能整体开出 $nm$ 个元素的题目。
+
+\begin{lstlisting}
+template<typename T>
+struct Fenwick2D{
+    std::vector<std::vector<T>> value;
+    int nx = 0, ny = 0;
+    Fenwick2D(int n = 0,int m = 0):nx(n+1),ny(m+1){
+        value.assign(nx, std::vector<T>(ny, T(0)));
+    }
+    void add(int x,int y,T v){
+        for (int i = x;i < nx;i += i & (-i))
+            for (int j = y;j < ny;j += j & (-j))
+                value[i][j] += v;
+    }
+    T presum(int x,int y) const {
+        T ans = T(0);
+        for (int i = x;i;i -= i & (-i))
+            for (int j = y;j;j -= j & (-j))
+                ans += value[i][j];
+        return ans;
+    }
+};
+\end{lstlisting}
+
+\subsection{特化 \texttt{int} 的树状数组二分}
+
+上面的通用 \texttt{Fenwick} 取 $T=\texttt{int}$ 即为权值树状数组：以下标为桶编号、桶内存储元素的个数（值域过大时先离散化到 $1..m$）。\texttt{add(v,1)} 插入一个 $v$、\texttt{add(v,-1)} 删除一个 $v$，需保证任意时刻各桶计数非负（前缀和才单调）。\texttt{kth(k)} 返回最小的下标 $p$，使桶 $1..p$ 的计数之和 $\ge k$，即当前多重集的第 $k$ 小（重复元素各占一个名次）；要求 $1\le k\le$ 当前计数总和。单次 $\mathcal{O}(\log n)$。下例中 $a$ 为离散化到 $1..m$ 的数组、$x$ 为被删除的值、$p$ 为求得的第 $k$ 小：
+
+\begin{lstlisting}
+Fenwick<int> bit(m);
+for (int i = 1;i <= n;++i) bit.add(a[i], 1);
+bit.add(x, -1);
+int p = bit.kth(k);
 \end{lstlisting}
