@@ -1,0 +1,38 @@
+\section{字典树}
+
+维护若干个小写字母串构成的多重集合，支持插入并在各前缀处计数。\texttt{insert(s)} 把 $s$ 插入多重集并返回其终止结点编号，重复插入同一串会计多次；此后 \texttt{cnt[u]} 等于以根到 $u$ 对应字符串为前缀的已插入串数（含 $s$ 自身），如 \texttt{cnt[0]} 即已插入总数。结点编号随插入递增，\texttt{tr[u][ch]} 为 $u$ 沿字符 \texttt{ch}（$0..25$ 对应 \texttt{'a'..'z'}）的子结点，缺失时为 $0$。字符集非 26 个小写字母时需改 \texttt{tr} 的第二维与字符映射 \texttt{s[i]-'a'}。
+
+\begin{lstlisting}
+struct Trie{
+    std::vector<std::array<int,26>> tr;
+    std::vector<int> cnt;
+    Trie():tr(1),cnt(1){
+        tr[0].fill(0);
+        cnt[0] = 0;
+    }
+    int newNode(){
+        tr.push_back({});
+        tr.back().fill(0);
+        cnt.push_back(0);
+        return tr.size() - 1;
+    }
+    std::array<int,26>& operator[](int x){
+        return tr[x];
+    }
+    int insert(const std::string& s){
+        int n = s.size();
+        int u = 0;
+        cnt[u]++;
+        for (int i = 0;i < n;i++){
+            int ch = s[i] - 'a';
+            if (!tr[u][ch])
+                tr[u][ch] = newNode();
+            u = tr[u][ch];
+            cnt[u]++;
+        }
+        return u;
+    }
+};
+\end{lstlisting}
+
+单次 \texttt{insert} 复杂度 $\mathcal{O}(|s|)$；总点数为所有已插入串的公共前缀数。要统计某前缀 $p$ 的已插入串数，可从根沿 $p$ 的各字符走到底（中途缺失则结果为 $0$）并读该结点的 \texttt{cnt}。

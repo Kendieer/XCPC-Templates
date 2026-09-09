@@ -8,10 +8,9 @@ $$(a+b)^n = \sum_{i=0}^n \binom{n}{i} a^i b^{n-i}$$
 
 通常情况下，二项式反演以以下四种模板演化。
 
-$$g(n) = \sum_{i=0}^n (-1)^i \binom{n}{i} f(i) \iff f(n) = \sum_{i=0}^n (-1)^i \binom{n}{i} g(i) $$
-
-$$g(n) = \sum_{i=0}^n \binom{n}{i} f(i) \iff f(n) = \sum_{i=0}^n (-1)^{n-i} \binom{n}{i} g(i)$$
-
-$$g(n) = \sum_{i=n}^N (-1)^i \binom{i}{n} f(i) \iff f(n) = \sum_{i=n}^N (-1)^i \binom{i}{n} g(i)$$
-
-$$g(n) = \sum_{i=n}^N \binom{i}{n} f(i) \iff f(n) = \sum_{i=n}^N (-1)^{i-n} \binom{i}{n} g(i)$$
+\begin{enumerate}
+    \item $$g(n) = \sum_{i=0}^n (-1)^i \binom{n}{i} f(i) \iff f(n) = \sum_{i=0}^n (-1)^i \binom{n}{i} g(i) $$
+    \item $$g(n) = \sum_{i=0}^n \binom{n}{i} f(i) \iff f(n) = \sum_{i=0}^n (-1)^{n-i} \binom{n}{i} g(i)$$
+    \item $$g(n) = \sum_{i=n}^N (-1)^i \binom{i}{n} f(i) \iff f(n) = \sum_{i=n}^N (-1)^i \binom{i}{n} g(i)$$
+    \item $$g(n) = \sum_{i=n}^N \binom{i}{n} f(i) \iff f(n) = \sum_{i=n}^N (-1)^{i-n} \binom{i}{n} g(i)$$
+\end{enumerate}

@@ -1,0 +1,77 @@
+\subsection{01-Trie}
+
+把数字按二进制从高位到低位插入的二叉树（每位 0/1 一个儿子，结点计数为其子树中元素个数），可完成与平衡树相同的多重集操作，且实现与常数更小。视为多重集：重复值可存，\texttt{remove(x)} 仅删除一个等于 $x$ 的元素（不存在则无事发生）。值域需为非负整数：固定 $H=30$ 支持 $0\le x\le 2^{31}-1$，更大值域改大 \texttt{H}。
+
+各操作单次 $\mathcal{O}(\log V)$（$V$ 为值域）：\texttt{insert(x)} 插入一个 $x$；\texttt{remove(x)} 删除一个等于 $x$ 的元素；\texttt{rank(x)} 返回严格小于 $x$ 的元素个数 $+1$（即插入 $x$ 后 $x$ 得到的最小排名），$x$ 不存在时返回 $-1$；\texttt{index(k)} 返回第 $k$ 小元素（下标从 1 开始）；\texttt{contains(x)}、\texttt{size()} 分别判断存在性与元素个数。
+
+\begin{lstlisting}
+struct Trie01{
+    using u32 = unsigned int;
+    static constexpr int H = 30;
+    std::vector<u32> cnt;
+    std::vector<std::array<u32,2>> son;
+    Trie01(){
+        newNode();
+    }
+    void insert(int x){
+        u32 u = 0;
+        cnt[u]++;
+        for (int b = H;b >= 0;b--) {
+            u32 bit = (x >> b) & 1;
+            if (son[u][bit] == 0) son[u][bit] = newNode();
+            u = son[u][bit];
+            cnt[u]++;
+        }
+    }
+    void remove(int x){
+        if (!contains(x)) return;
+        u32 u = 0;
+        cnt[u]--;
+        for (int b = H;b >= 0;b--) {
+            u = son[u][(x >> b) & 1];
+            cnt[u]--;
+        }
+    }
+    int rank(int x) const {
+        u32 less = 0,u = 0;
+        for (int b = H;b >= 0;b--) {
+            u32 bit = (x >> b) & 1;
+            if (bit && son[u][0]) less += cnt[son[u][0]];
+            if (son[u][bit] == 0) return -1;
+            u = son[u][bit];
+        }
+        if (cnt[u] == 0) return -1;
+        return less + 1;
+    }
+    bool contains(int x) const {
+        u32 u = 0;
+        for (int b = H;b >= 0;b--) {
+            u = son[u][(x >> b) & 1];
+            if (u == 0) return 0;
+        }
+        return cnt[u] != 0;
+    }
+    int index(u32 rk) const {
+        u32 u = 0,ans = 0;
+        for (int b = H;b >= 0;b--) {
+            u32 c0 = son[u][0] ? cnt[son[u][0]] : 0;
+            if (rk <= c0) u = son[u][0];
+            else {
+                rk -= c0;
+                ans |= 1u << b;
+                u = son[u][1];
+            }
+        }
+        return ans;
+    }
+    u32 size() const {
+        return cnt[0];
+    }
+private:
+    u32 newNode(){
+        cnt.emplace_back(0);
+        son.emplace_back(std::array<u32,2>({0,0}));
+        return cnt.size() - 1;
+    }
+};
+\end{lstlisting}

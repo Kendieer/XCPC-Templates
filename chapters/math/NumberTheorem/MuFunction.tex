@@ -1,4 +1,6 @@
-\section{莫比乌斯函数}
+\section{莫比乌斯函数及其反演}
+
+\subsection{莫比乌斯函数}
 
 $\mu(x)$：$\mu(1)=1$；$x$ 含平方因子时 $\mu(x)=0$；否则 $\mu(x)=(-1)^k$，其中 $k$ 为 $x$ 的不同质因子个数。
 
@@ -50,3 +52,13 @@ auto cal = [](int n,int m,int k)->i64 {
     return ans;
 };
 \end{lstlisting}
+
+\subsection{莫比乌斯反演}
+
+对于数论函数 $f,g$，常用莫比乌斯反演的式子有以下三种情况：
+
+\begin{enumerate}
+    \item $$f(n)=\sum_{d|n} g(d) \iff g(n) = \sum_{d|n} \mu(\frac{n}{d})\cdot f(d)$$
+    \item $$f(n)=\sum_{n|d} g(d) \iff g(n) = \sum_{n|d} \mu(\frac{d}{n})\cdot f(d)$$
+    \item $$f(n)=\prod_{d|n}g(d) \iff g(n) = \prod_{d|n} f(d)^{\mu(\frac{n}{d})}$$
+\end{enumerate}
