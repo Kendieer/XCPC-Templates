@@ -1,0 +1,36 @@
+\subsection{可并堆（pb\_ds 配对堆）}
+
+需要把两个堆整体合并（可并堆）时直接用配对堆，不必手写左偏树：\texttt{join} 均摊 $\mathcal{O}(1)$ 把另一堆的元素全部并入本堆并清空它（被并入那堆的点迭代器仍然有效，之后照常删除/改键）。\texttt{push} 返回点迭代器，配合它可 $\mathcal{O}(\log n)$ 删除堆中任意元素或修改其键值；按点用 \texttt{std::vector} 记下迭代器，就是「每个点一个堆、自底向上合并」的写法（也用于带删点/改键的 Dijkstra）。头文件 \texttt{ext/pb\_ds/priority\_queue.hpp}。
+
+\texttt{top}/\texttt{pop} 要求堆非空，弹堆顶会使其点迭代器失效；\texttt{erase}/\texttt{modify} 要求该元素确实在本堆中。
+
+\begin{center}
+\small
+\begin{tabular}{lp{7cm}c}
+\toprule
+操作 & 写法 & 复杂度 \\
+\midrule
+合并两堆 & \texttt{a.join(b)} & 均摊 $\mathcal{O}(1)$ \\
+插入 & \texttt{auto it = a.push(v)} & $\mathcal{O}(\log n)$ \\
+删除任意元素 & \texttt{a.erase(it)} & $\mathcal{O}(\log n)$ \\
+改键 & \texttt{a.modify(it, v)} & $\mathcal{O}(\log n)$ \\
+取堆顶 & \texttt{a.top()} & $\mathcal{O}(1)$ \\
+弹堆顶 & \texttt{a.pop()} & $\mathcal{O}(\log n)$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\begin{lstlisting}
+#include <ext/pb_ds/priority_queue.hpp>
+using Node = std::pair<long long,int>;
+using Heap = __gnu_pbds::priority_queue<Node,std::greater<Node>,__gnu_pbds::pairing_heap_tag>;
+
+std::vector<Heap> heap(n + 1);
+std::vector<Heap::point_iterator> pos(n + 1,nullptr);
+pos[v] = heap[u].push({w, v});
+heap[u].modify(pos[v], {w, v});
+heap[u].erase(pos[v]);
+heap[x].join(heap[y]);
+auto [d, u] = heap[x].top();
+heap[x].pop();
+\end{lstlisting}

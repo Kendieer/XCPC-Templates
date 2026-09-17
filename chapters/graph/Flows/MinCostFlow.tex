@@ -181,3 +181,214 @@ struct MinCostFlow {
 };
 \end{lstlisting}
 
+\subsubsection{基于 HLPP 的费用流（费用缩放）}
+
+先用 \texttt{HLPP} 求出最大流把流值定住，再在残量网络上做费用缩放：势能与 $\varepsilon$ 都按 $n+1$ 倍整数存储，$\varepsilon$ 逐轮减半，每轮先把简化费用为负的残量弧饱和、再把产生的超额沿简化费用为负的弧压回平衡，$\varepsilon$ 降到 $1/(n+1)$ 时残量网络无负环，即得该流值下的最小费用，基于 \texttt{HLPP}。复杂度上界 $\mathcal{O}(nm\log (nC))$，$C$ 为边费用的最大绝对值；迭代轮数只与 $n$、$C$ 有关而与流量无关，流量大时远快于上面两种按流量逐次增广的 SSP，负费用乃至负环费用也能处理。
+
+\texttt{work} 返回 \verb|{flow, cost}|，与 \texttt{SSP} 一致。费用绝对值大且点数多时注意 \texttt{long long}（量级 $|w|\cdot n^2$）。
+
+\begin{lstlisting}
+using i64 = long long;
+using p64 = std::array<i64,2>;
+constexpr i64 INF = 1e18;
+struct MinCostFlowHLPP {
+    int n,s = 0,t = 0;
+    int maxh = 0,maxgaph = 0,workcnt = 0;
+    struct Edge {
+        int to = 0,nxt = 0;
+        i64 f = 0,c = 0,w = 0;
+    };
+    std::vector<int> head,cur,h,ovList,ovNxt,gap,gapPrv,gapNxt;
+    std::vector<i64> ov,pot;
+    std::vector<bool> inq;
+    std::vector<Edge> edge;
+    std::queue<int> ovq;
+
+    MinCostFlowHLPP(int _n):n(_n),head(n+1),cur(n+1),h(n+1),ovList(n+1,-1),
+        ovNxt(n+1,-1),gap(n+1,-1),gapPrv(n+1,-1),gapNxt(n+1,-1),ov(n+1),
+        pot(n+1),inq(n+1),edge(2) {}
+
+    void connect(int u,int v,i64 c,i64 w){
+        edge.push_back({v,head[u],c,c,w});
+        head[u] = edge.size() - 1;
+        edge.push_back({u,head[v],0,0,-w});
+        head[v] = edge.size() - 1;
+    }
+
+    p64 work(int s_,int t_){
+        s = s_,t = t_;
+        i64 flow = maxFlow();
+        ov[s] += flow;
+        ov[t] -= flow;
+        std::fill(pot.begin(),pot.end(),0);
+        for (int u = 1;u <= n;++u){
+            cur[u] = head[u];
+            if (ov[u] > 0){
+                inq[u] = 1;
+                ovq.push(u);
+            }
+        }
+        i64 mx = 0,eps = 1;
+        for (int e = 2;e < (int)edge.size();++e) mx = std::max(mx,std::abs(edge[e].w));
+        while (eps < mx * (n + 1)) eps <<= 1;
+        for (;eps >= 1;eps >>= 1) refine(eps);
+        i64 cost = 0;
+        for (int e = 2;e < (int)edge.size();e += 2) cost += (edge[e].c - edge[e].f) * edge[e].w;
+        return {flow,cost};
+    }
+private:
+    void setHeight(int x,int newh){
+        if (~gapPrv[x]){
+            if (gapPrv[x] == x){
+                gap[h[x]] = gapNxt[x];
+                if (~gapNxt[x]) gapPrv[gapNxt[x]] = gapNxt[x];
+            } else {
+                gapNxt[gapPrv[x]] = gapNxt[x];
+                if (~gapNxt[x]) gapPrv[gapNxt[x]] = gapPrv[x];
+            }
+            gapPrv[x] = gapNxt[x] = -1;
+        }
+        h[x] = newh;
+        if (h[x] >= n) return;
+        maxgaph = std::max(maxgaph,h[x]);
+        if (ov[x] > 0){
+            maxh = std::max(maxh,h[x]);
+            ovNxt[x] = ovList[h[x]];
+            ovList[h[x]] = x;
+        }
+        gapNxt[x] = gap[h[x]];
+        if (~gapNxt[x]) gapPrv[gapNxt[x]] = x;
+        gap[h[x]] = gapPrv[x] = x;
+    }
+    void globalRelabel(){
+        workcnt = maxh = maxgaph = 0;
+        std::fill(h.begin(),h.end(),n);
+        h[t] = 0;
+        std::fill(gapPrv.begin(),gapPrv.end(),-1);
+        std::fill(gapNxt.begin(),gapNxt.end(),-1);
+        std::fill(gap.begin(),gap.end(),-1);
+        std::fill(ovList.begin(),ovList.end(),-1);
+        for (int u = 1;u <= n;++u) cur[u] = head[u];
+        std::queue<int> que;
+        que.push(t);
+        while (!que.empty()){
+            int x = que.front();
+            que.pop();
+            for (int e = head[x];e;e = edge[e].nxt){
+                int y = edge[e].to;
+                if (h[y] == n && y != s && edge[e ^ 1].f > 0){
+                    setHeight(y,h[x] + 1);
+                    que.push(y);
+                }
+            }
+        }
+    }
+    void pushFlow(int from,int e,i64 f){
+        int v = edge[e].to;
+        if (!ov[v] && v != t && h[v] < n){
+            maxh = std::max(maxh,h[v]);
+            ovNxt[v] = ovList[h[v]];
+            ovList[h[v]] = v;
+        }
+        edge[e].f -= f;
+        edge[e ^ 1].f += f;
+        ov[from] -= f;
+        ov[v] += f;
+    }
+    void discharge(int x){
+        int nh = n,cur0 = cur[x];
+        for (int e = cur0;e;e = edge[e].nxt){
+            if (edge[e].f > 0){
+                int y = edge[e].to;
+                if (h[x] == h[y] + 1){
+                    pushFlow(x,e,std::min(ov[x],edge[e].f));
+                    if (ov[x] == 0){
+                        cur[x] = e;
+                        return;
+                    }
+                } else {
+                    nh = std::min(nh,h[y] + 1);
+                }
+            }
+        }
+        for (int e = head[x];e != cur0;e = edge[e].nxt){
+            if (edge[e].f > 0) nh = std::min(nh,h[edge[e].to] + 1);
+        }
+        cur[x] = head[x];
+        ++workcnt;
+        int oldh = h[x],head0 = gap[oldh];
+        if (~gapNxt[head0]){
+            setHeight(x,nh);
+        } else {
+            for (int i = oldh;i <= maxgaph;++i){
+                for (int j = gap[i];~j;){
+                    int nxt = gapNxt[j];
+                    h[j] = n;
+                    gapPrv[j] = gapNxt[j] = -1;
+                    j = nxt;
+                }
+                gap[i] = -1;
+            }
+            maxgaph = oldh - 1;
+        }
+    }
+    i64 maxFlow(){
+        globalRelabel();
+        for (int e = head[s];e;e = edge[e].nxt){
+            if (edge[e].f) pushFlow(s,e,edge[e].f);
+        }
+        for (;maxh >= 0;--maxh){
+            while (~ovList[maxh]){
+                int x = ovList[maxh];
+                ovList[maxh] = ovNxt[x];
+                discharge(x);
+                if (workcnt > (n << 2)) globalRelabel();
+            }
+        }
+        return ov[t];
+    }
+    i64 red(int u,int e){
+        return (n + 1) * edge[e].w + pot[u] - pot[edge[e].to];
+    }
+    void pushCost(int u,int e,i64 f){
+        int v = edge[e].to;
+        edge[e].f -= f;
+        edge[e ^ 1].f += f;
+        ov[u] -= f;
+        ov[v] += f;
+        if (ov[v] > 0 && !inq[v]){
+            inq[v] = 1;
+            ovq.push(v);
+        }
+    }
+    void dischargeCost(int u,i64 eps){
+        while (ov[u] > 0){
+            if (!cur[u]){
+                i64 mn = INF;
+                for (int e = head[u];e;e = edge[e].nxt){
+                    if (edge[e].f > 0) mn = std::min(mn,red(u,e));
+                }
+                pot[u] -= mn + eps;
+                cur[u] = head[u];
+            }
+            int e = cur[u];
+            if (edge[e].f > 0 && red(u,e) < 0) pushCost(u,e,std::min(ov[u],edge[e].f));
+            else cur[u] = edge[e].nxt;
+        }
+    }
+    void refine(i64 eps){
+        for (int u = 1;u <= n;++u){
+            for (int e = head[u];e;e = edge[e].nxt){
+                if (edge[e].f > 0 && red(u,e) < 0) pushCost(u,e,edge[e].f);
+            }
+        }
+        while (!ovq.empty()){
+            int u = ovq.front();
+            ovq.pop();
+            inq[u] = 0;
+            dischargeCost(u,eps);
+        }
+    }
+};
+\end{lstlisting}
+

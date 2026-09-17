@@ -1,0 +1,14 @@
+\section{传递闭包}
+
+求有向图的传递闭包。\texttt{reach[i][j]} 为 $1$ 表示 $i$ 可达 $j$：先把对角线置 $1$、并按每条有向边 $u\to v$ 置 \texttt{reach[u][v]=1}，再执行下述过程。时间复杂度 $\mathcal{O}(n^3/64)$，空间 $\mathcal{O}(n^2/8)$，\texttt{MAXN} 取点数上界 $+1$。
+
+含对角线时得到自反传递闭包；若不需要 $i$ 可达自身，去掉对角线初始化即可，此时 \texttt{reach[i][i]} 为 $1$ 当且仅当 $i$ 在某个环上。
+
+\begin{lstlisting}
+constexpr int MAXN = 1005;
+std::vector<std::bitset<MAXN>> reach(n + 1);
+for (int i = 1;i <= n;i++) reach[i][i] = 1;
+for (int k = 1;k <= n;k++)
+    for (int i = 1;i <= n;i++)
+        if (reach[i][k]) reach[i] |= reach[k];
+\end{lstlisting}

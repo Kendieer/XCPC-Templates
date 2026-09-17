@@ -1,0 +1,35 @@
+\section{字符串哈希}
+
+模 $2^{61}-1$ 的多项式哈希：\texttt{Hash(s)} 预处理串 $s$ 后，\texttt{hash(l,r)} 返回 $s[l..r]$（下标 $0$ 起始、闭区间）的哈希值，两子串哈希相等即可判定二者相同。预处理 $\mathcal{O}(n)$，单次查询 $\mathcal{O}(1)$。
+
+\texttt{Hash::P} 为静态幂表，多个实例共享并随串长懒扩充。基数 \texttt{K} 固定，题目开放 hack 时改成值为 $\frac{M}{2} \sim M-2$ 之间随机值即可。
+
+\begin{lstlisting}
+struct Hash {
+    using u64 = unsigned long long;
+    using u128 = unsigned __int128;
+    constexpr static u64 M = (1ULL << 61) - 1;
+    constexpr static u64 K = 1234567890123456789ULL;
+    static inline std::vector<u64> P;
+    constexpr static u64 norm(u64 x){
+        x = (x & M) + (x >> 61);
+        return x >= M ? x - M : x;
+    }
+    constexpr static u64 mul(u64 x,u64 y){
+        u128 z = static_cast<u128>(x) * y;
+        return norm((z & M) + (z >> 61));
+    }
+    std::vector<u64> H;
+    Hash(const std::string& s):H(s.size() + 1){
+        while (P.size() <= s.size()){
+            P.push_back(P.empty() ? 1 : mul(P.back(),K));
+        }
+        for (int i = 0;i < s.size();i++){
+            H[i + 1] = norm(mul(K,H[i]) + s[i]);
+        }
+    }
+    u64 operator()(int l,int r) const {
+        return norm(M + H[r + 1] - mul(H[l],P[r - l + 1]));
+    }
+};
+\end{lstlisting}

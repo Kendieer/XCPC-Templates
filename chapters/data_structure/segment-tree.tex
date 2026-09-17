@@ -2,11 +2,9 @@
 
 \subsection{静态线段树}
 
-支持区间修改、区间查询。\texttt{Info} 与 \texttt{Tag} 需按题目自实现，区间端点 $l,r$ 由树自动维护。
+支持区间修改、区间查询。\texttt{Info} 与 \texttt{Tag} 需按题目自实现：\texttt{Info} 存区间聚合值，须带区间端点成员 \texttt{l,r}（树自动写入，供 \texttt{apply} 判断作用长度），重载 \texttt{operator+} 合并两个相邻子区间、提供 \texttt{apply(Tag)} 作整段修改；\texttt{Tag} 为懒标记，需提供 \texttt{apply(Tag)} 叠加标记，默认构造表示无待下传标记。
 
-\texttt{Info} 存区间聚合值，需重载 \texttt{operator+} 合并两个相邻子区间、提供 \texttt{apply(Tag)} 作整段修改；\texttt{Tag} 为懒标记，需提供 \texttt{apply(Tag)} 叠加标记，默认构造表示无待下传标记。
-
-构造 \texttt{SegmentTree(n)} 得全零树，或传下标 $1..n$（大小 $n+1$）的初值数组建树。\texttt{modify(l,r,tag)} 区间整体修改；\texttt{seg(l,r)} 返回 $[l,r]$ 的聚合值，越界下标自动夹到 $[1,n]$。单次 $\mathcal{O}(\log n)$。
+构造 \texttt{SegmentTree<Info,Tag>(n)} 得 $[1,n]$ 上的全零树，或传下标 $1..n$ 的初值数组（大小 $n+1$）建树，\texttt{rebuild} 可重新初始化。\texttt{modify(l,r,tag)} 对 $[l,r]$ 整段打标记，\texttt{seg(l,r)}（\texttt{operator()}）返回聚合值，越界下标自动夹到 $[1,n]$。单次 $\mathcal{O}(\log n)$。
 
 \begin{lstlisting}
 template<typename Info,typename Tag>
@@ -116,7 +114,9 @@ struct Info{
 
 \subsection{开点线段树}
 
-\noindent 值域 $[1,n]$ 可极大（如 $10^{18}$）或整体稀疏时使用，只给被访问到的区间分配结点，单次修改/查询都只新建 $\mathcal{O}(\log n)$ 个结点。\texttt{Info}、\texttt{Tag} 的实现要求与静态版相同；构造 \texttt{SegmentTree<Info,Tag>(n)} 后，\texttt{modify(l,r,tag)} 与 \texttt{seg(l,r)} 的语义同静态版，$n$ 的类型为 \texttt{long long}。
+\noindent 值域 $[1,n]$ 极大（如 $10^{18}$）或整体稀疏时使用：只给被访问到的区间分配结点，单次修改/查询新建 $\mathcal{O}(\log n)$ 个结点。\texttt{Info}、\texttt{Tag} 的实现要求与静态版相同（此结构与静态版同名，同时使用需改名）。
+
+构造 \texttt{SegmentTree<Info,Tag>(n)}（$n$ 为 \texttt{long long}），\texttt{modify(l,r,tag)} 对 $[l,r]$ 整段打标记，\texttt{seg(l,r)}（\texttt{operator()}）返回 $[l,r]$ 的聚合值；此处不做越界夹取，要求 $1 \le l \le r \le n$。单次 $\mathcal{O}(\log n)$。
 
 \begin{lstlisting}
 template<typename Info,typename Tag>
@@ -228,7 +228,9 @@ struct Info{
 
 \subsection{可持久化线段树}
 
-支持保留历史版本，各版本可独立查询、继续修改。0 号版本为 \texttt{rebuild(n)} 建立的初始版本；\texttt{modify(ver,l,r,tag)} 以第 \texttt{ver} 个版本为基础修改并返回新版本编号（旧版本不变），之后用返回的编号继续操作即形成版本链。\texttt{seg(ver,l,r)}（\texttt{operator()}）查询第 \texttt{ver} 个版本的 $[l,r]$。该实现不做标记永久化，查询时沿路径累计标记。时间与空间复杂度均为 $\mathcal{O}((n+q)\log n)$。
+支持保留历史版本，各版本可独立查询、继续修改。\texttt{Info}、\texttt{Tag} 的实现要求与静态版相同。
+
+构造 \texttt{PersistentSegmentTree<Info,Tag>(n)} 或调用 \texttt{rebuild(n)} 建立 $0$ 号版本（空树）。\texttt{modify(ver,l,r,tag)} 以第 \texttt{ver} 个版本为基础修改并返回新版本编号（旧版本不变），之后用返回的编号继续操作即形成版本链；\texttt{seg(ver,l,r)}（\texttt{operator()}）查询第 \texttt{ver} 个版本的 $[l,r]$，返回 \texttt{Info}。不做标记永久化，查询时沿路径累计标记，故单次时空均为 $\mathcal{O}(\log n)$，$q$ 次操作总计 $\mathcal{O}((n+q)\log n)$。
 
 \begin{lstlisting}
 template<typename Info,typename Tag>
@@ -341,9 +343,201 @@ struct Tag{
 };
 struct Info{
     int l = 1,r = 0;
-    
+
     Info(){}
     void apply(const Tag& t){
+    }
+    friend Info operator+(const Info& lhs,const Info& rhs){
+        Info res;
+        return res;
+    }
+};
+\end{lstlisting}
+
+\subsection{线段树合并与分裂}
+
+动态开点线段树，初始为空树，支持把两棵树的同位置元素叠加合并、以及按位置区间把一棵树拆成两棵，常用于「每个点/每种颜色一棵权值线段树」之后自底向上合并。\texttt{Info}、\texttt{Tag} 的实现要求与静态版相同；两棵树各自的未下传标记只作用于自己的元素，合并时不会串到对方上。
+
+构造 \texttt{MergeSplitSegmentTree<Info,Tag>(n)}，值域为 $[1,n]$（\texttt{long long}）。根编号为 \texttt{int}，$0$ 表示空树；\texttt{modify(root,p,val)} 把 \texttt{Info} 类型的 \texttt{val} 叠加到下标 $p$（插入元素用），\texttt{modify(root,l,r,tag)} 对区间打标记，两者都以引用传入 \texttt{root} 并就地改为新根；\texttt{root(l,r)}（\texttt{operator()}）返回 $[l,r]$ 的聚合值；\texttt{merge(a,b)} 把 $b$ 并入 $a$ 并返回新根（$b$ 不再可用，调用后应置 $0$），单次代价为两棵树的重合结点数，因此按任意顺序合并的总代价不超过历史新建的结点数；\texttt{split(root,l,r)} 把 $[l,r]$ 内的元素拆出作为新树返回，\texttt{root} 保留其余部分（区间内无元素时返回 $0$），单次 $\mathcal{O}(\log n)$。
+
+\begin{lstlisting}
+template<typename Info,typename Tag>
+struct MergeSplitSegmentTree{
+private:
+    long long _n = 0;
+    std::vector<Info> _info;
+    std::vector<Tag> _tag;
+    std::vector<int> _lc,_rc;
+    void resize(Info& info,long long l,long long r){
+        info.l = l;
+        info.r = r;
+    }
+    int newNode(long long l,long long r){
+        int u = _info.size();
+        _info.push_back(Info());
+        _tag.push_back(Tag());
+        _lc.push_back(0);
+        _rc.push_back(0);
+        resize(_info[u],l,r);
+        return u;
+    }
+    void push_down(int u,long long l,long long r,long long mid){
+        if (_lc[u] == 0) _lc[u] = newNode(l,mid);
+        if (_rc[u] == 0) _rc[u] = newNode(mid+1,r);
+        _info[_lc[u]].apply(_tag[u]);
+        _tag[_lc[u]].apply(_tag[u]);
+        _info[_rc[u]].apply(_tag[u]);
+        _tag[_rc[u]].apply(_tag[u]);
+        _tag[u] = Tag();
+    }
+    void push_up(int u,long long l,long long r){
+        _info[u] = _info[_lc[u]] + _info[_rc[u]];
+        resize(_info[u],l,r);
+    }
+    void push_tag(int u,const Tag& val){
+        if (u == 0) return;
+        _info[u].apply(val);
+        _tag[u].apply(val);
+    }
+    int modify(int u,long long l,long long r,long long p,const Info& v){
+        if (u == 0) u = newNode(l,r);
+        if (l == r) {
+            _info[u] = _info[u] + v;
+            resize(_info[u],l,r);
+            return u;
+        }
+        long long mid = l + r >> 1;
+        push_down(u,l,r,mid);
+        if (p <= mid) _lc[u] = modify(_lc[u],l,mid,p,v);
+        else _rc[u] = modify(_rc[u],mid+1,r,p,v);
+        push_up(u,l,r);
+        return u;
+    }
+    void modify(int u,const Tag& val,long long l,long long r,long long ql,long long qr){
+        if (ql <= l && r <= qr) {
+            _info[u].apply(val);
+            _tag[u].apply(val);
+            return;
+        }
+        long long mid = l + r >> 1;
+        push_down(u,l,r,mid);
+        if (ql <= mid) modify(_lc[u],val,l,mid,ql,qr);
+        if (qr > mid) modify(_rc[u],val,mid+1,r,ql,qr);
+        push_up(u,l,r);
+    }
+    Info ask(int u,Tag val,long long l,long long r,long long ql,long long qr){
+        if (u == 0) {
+            Info res;
+            resize(res,std::max<long long>(ql,l),std::min<long long>(qr,r));
+            res.apply(val);
+            return res;
+        }
+        if (ql <= l && r <= qr) {
+            Info res = _info[u];
+            res.apply(val);
+            return res;
+        }
+        val.apply(_tag[u]);
+        long long mid = l + r >> 1;
+        if (qr <= mid) return ask(_lc[u],val,l,mid,ql,qr);
+        if (ql > mid) return ask(_rc[u],val,mid+1,r,ql,qr);
+        Info res = ask(_lc[u],val,l,mid,ql,qr) + ask(_rc[u],val,mid+1,r,ql,qr);
+        resize(res,std::max<long long>(ql,l),std::min<long long>(qr,r));
+        return res;
+    }
+    int merge(int a,int b,long long l,long long r){
+        if (a == 0) return b;
+        if (b == 0) return a;
+        if (l == r) {
+            _info[a] = _info[a] + _info[b];
+            _tag[a] = Tag();
+            return a;
+        }
+        long long mid = l + r >> 1;
+        push_down(a,l,r,mid);
+        push_down(b,l,r,mid);
+        _lc[a] = merge(_lc[a],_lc[b],l,mid);
+        _rc[a] = merge(_rc[a],_rc[b],mid+1,r);
+        push_up(a,l,r);
+        return a;
+    }
+    int split(int u,long long l,long long r,long long ql,long long qr,int& rest){
+        if (u == 0 || qr < l || r < ql) {
+            rest = u;
+            return 0;
+        }
+        if (ql <= l && r <= qr) {
+            rest = 0;
+            return u;
+        }
+        long long mid = l + r >> 1;
+        int left = 0,right = 0;
+        int a = split(_lc[u],l,mid,ql,qr,left);
+        int b = split(_rc[u],mid+1,r,ql,qr,right);
+        if (a == 0 && b == 0) {
+            rest = u;
+            return 0;
+        }
+        _lc[u] = left;
+        _rc[u] = right;
+        push_tag(left,_tag[u]);
+        push_tag(right,_tag[u]);
+        push_tag(a,_tag[u]);
+        push_tag(b,_tag[u]);
+        _tag[u] = Tag();
+        push_up(u,l,r);
+        int v = newNode(l,r);
+        _lc[v] = a;
+        _rc[v] = b;
+        push_up(v,l,r);
+        rest = u;
+        return v;
+    }
+public:
+    MergeSplitSegmentTree(long long n = 0){
+        _n = n;
+        _info.assign(1,Info());
+        _tag.assign(1,Tag());
+        _lc.assign(1,0);
+        _rc.assign(1,0);
+    }
+    void modify(int& root,long long p,const Info& val){
+        if (root == 0) root = newNode(1,_n);
+        root = modify(root,1,_n,p,val);
+    }
+    void modify(int& root,long long l,long long r,const Tag& val){
+        if (l > r) return;
+        if (root == 0) root = newNode(1,_n);
+        modify(root,val,1,_n,l,r);
+    }
+    Info operator()(int root,long long l,long long r){
+        if (l > r) return Info();
+        return ask(root,Tag(),1,_n,l,r);
+    }
+    int merge(int a,int b){
+        return merge(a,b,1,_n);
+    }
+    int split(int& root,long long l,long long r){
+        if (l > r) return 0;
+        int rest = 0;
+        int v = split(root,1,_n,l,r,rest);
+        root = rest;
+        return v;
+    }
+};
+struct Tag{
+
+    Tag(){}
+    void apply(const Tag& t){
+
+    }
+};
+struct Info{
+    long long l = 1,r = 0;
+
+    Info(){}
+    void apply(const Tag& t){
+
     }
     friend Info operator+(const Info& lhs,const Info& rhs){
         Info res;
