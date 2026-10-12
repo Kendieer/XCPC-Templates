@@ -1,0 +1,35 @@
+\section{类欧几里得算法}
+
+求
+$$S(n,m,a,b)=\sum_{i=0}^{n-1}\left\lfloor\frac{ai+b}{m}\right\rfloor\qquad(n\ge0,\ m>0,\ a,b\ge0).$$
+
+做法与欧几里得算法同构：先把 $a\ge m$、$b\ge m$ 的整数部分按等差数列整体提出来，剩余部分交换求和次序，改成对每个 $y=\lfloor\frac{ai+b}{m}\rfloor$ 统计满足条件的 $i$ 的个数，此时 $a$ 与 $m$ 互换，参数按辗转相除的方式下降，故复杂度为 $\mathcal{O}(\log m)$。
+
+\begin{lstlisting}
+using i64 = long long;
+using i128 = __int128;
+i64 floorSum(i64 n,i64 m,i64 a,i64 b){
+    i128 ans = 0;
+    while (true){
+        if (a >= m){
+            ans += (i128)n * (n - 1) / 2 * (a / m);
+            a %= m;
+        }
+        if (b >= m){
+            ans += (i128)n * (b / m);
+            b %= m;
+        }
+        i128 y = (i128)a * n + b;
+        if (y < m) break;
+        n = (i64)(y / m),b = (i64)(y % m);
+        std::swap(m,a);
+    }
+    return (i64)ans;
+}
+\end{lstlisting}
+
+\texttt{floorSum(n,m,a,b)} 返回 $\sum_{i=0}^{n-1}\lfloor\frac{ai+b}{m}\rfloor$：$n=0$ 或 $a=b=0$ 时为 $0$，$m=1$ 时退化成等差数列求和。函数内部会主动把 $a,b$ 对 $m$ 取模，调用前无需预处理；$a,b$ 为负时要把式子先整理成非负形式再调用。
+
+累加与中间量 $an+b$ 都在 128 位下运算，因此只需答案本身不超过 \texttt{i64}（最大约 $\frac{n(n-1)}2\cdot\frac am+\frac{nb}m$）即可，$n,m,a,b$ 取到 $10^9$ 量级也不会溢出。
+
+常见用法是把计数问题化为该形式，例如统计满足 $ax+by\le c$ 的非负整数解个数、推导 $\sum\gcd$ 一类含 $\lfloor\cdot\rfloor$ 的和式；$\sum_i i\,\lfloor\frac{ai+b}{m}\rfloor$、$\sum_i\lfloor\frac{ai+b}{m}\rfloor^2$ 等变体需要在同样的递归里额外带回高次项的信息，此处不再展开。

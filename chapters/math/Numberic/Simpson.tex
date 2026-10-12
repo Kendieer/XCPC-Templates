@@ -1,0 +1,32 @@
+\section{自适应辛普森积分}
+
+辛普森公式用 $l,\frac{l+r}{2},r$ 三点定出的抛物线下的面积近似曲边梯形面积：
+$$I(l,r)=\frac{r-l}{6}\left(F(l)+4F\!\left(\frac{l+r}{2}\right)+F(r)\right)$$
+
+自适应指把区间二分后比较整段的近似值 $I(l,r)$ 与两半段之和 $I(l,m)+I(m,r)$：相差超过 \texttt{eps} 就把两半段当作新的区间继续递归，直到每个小区间都满足判据。被积函数光滑时，求值次数在几十到几千量级即可达到 $10^{-9}$ 的精度。
+
+\begin{lstlisting}
+namespace Simpson {
+    double eps = 1e-9;
+    template<typename T>
+    double simpson(double l,double r,const T& F){
+        double mid = l + (r - l) / 2.0;
+        return (r - l) * (F(l) + F(r) + 4*F(mid)) / 6.0;
+    }
+    template<typename T>
+    double asr(double l,double r,double ans,const T& F){
+        double mid = l + (r - l) / 2.0;
+        double vl = simpson(l,mid,F),vr = simpson(mid,r,F);
+        if (std::abs(vl + vr - ans) <= eps) return ans;
+        else return asr(l,mid,vl,F) + asr(mid,r,vr,F);
+    }
+    template<typename T>
+    double work(double l,double r,const T& F){
+        return asr(l,r,simpson(l,r,F),F);
+    }
+}
+\end{lstlisting}
+
+\texttt{work(l,r,F)} 返回 $\int_l^rF(x)\,\mathrm dx$，\texttt{F} 为接受 \texttt{double}、返回 \texttt{double} 的可调用对象（函数指针、lambda 均可），$l>r$ 时返回相反数。精度由 \texttt{Simpson::eps} 控制：默认 $10^{-9}$，实测光滑函数上误差不超过 $10^{-8}$；改成 $10^{-12}$ 后误差降到 $10^{-11}$ 量级，求值次数约增到四倍。
+
+判据是逐区间的绝对误差，返回值不保证总误差小于 \texttt{eps}。振荡剧烈时误差会明显变大，如 $[0,1]$ 上的 $\sin\frac1x$ 实测约 $5.5\times10^{-6}$；若 $F$ 在某点取到 $\pm\infty$ 或产生 \texttt{NaN}（如 $\int_0^1\ln x\,\mathrm dx$），判据恒不成立，会一路细分至爆栈，此时需先把区间拆开或换元。

@@ -1,0 +1,54 @@
+\section{狄利克雷卷积}
+
+对两个数论函数 $f,g$ 定义
+$$(f*g)(n)=\sum_{d\mid n}f(d)\,g\!\left(\frac nd\right).$$
+狄利克雷卷积满足交换律与结合律，单位元是 $\varepsilon$（$\varepsilon(1)=1$，其余为 $0$）。由 $\mu*1=\varepsilon$ 可见莫比乌斯反演就是"乘上 $1$ 再乘上 $\mu$"这样一对互逆的变换。
+
+取 $g=1$（恒为 $1$ 的函数）得到 $(f*1)(n)=\sum_{d\mid n}f(d)$，即约数求和，称为狄利克雷前缀和；取 $g=\mu$ 得到它的逆变换 $(f*\mu)(n)=\sum_{d\mid n}f(d)\,\mu(\frac nd)$，称为狄利克雷差分。下列 \texttt{convolve} 按约数枚举求一般卷积，\texttt{prefix}、\texttt{suffix} 分别求 $f*1$ 与 $f*\mu$。
+
+\begin{lstlisting}
+namespace Dirichlet {
+    std::vector<int> getPrimes(int n){
+        std::vector<bool> isComp(n + 1);
+        std::vector<int> primes;
+        for (int i = 2;i <= n;i++){
+            if (!isComp[i]) primes.push_back(i);
+            for (int p : primes){
+                if (p * i > n) break;
+                isComp[p * i] = 1;
+                if (i % p == 0) break;
+            }
+        }
+        return primes;
+    }
+    template<typename T>
+    std::vector<T> convolve(const std::vector<T>& f,const std::vector<T>& g){
+        int n = std::min(f.size(),g.size()) - 1;
+        std::vector<T> h(n + 1);
+        for (int d = 1;d <= n;d++){
+            for (int m = d;m <= n;m += d) h[m] += f[d] * g[m / d];
+        }
+        return h;
+    }
+    template<typename T>
+    std::vector<T> prefix(std::vector<T> f){
+        int n = f.size() - 1;
+        for (int p : getPrimes(n)){
+            for (int i = 1;i * p <= n;i++) f[i * p] += f[i];
+        }
+        return f;
+    }
+    template<typename T>
+    std::vector<T> suffix(std::vector<T> f){
+        int n = f.size() - 1;
+        for (int p : getPrimes(n)){
+            for (int i = n / p;i >= 1;i--) f[i * p] -= f[i];
+        }
+        return f;
+    }
+}
+\end{lstlisting}
+
+三个函数的下标都从 $1$ 开始，传入长度为 $n+1$ 的数组、返回等长的数组；\texttt{convolve} 的两个数组长度不同时按较短的截断。\texttt{convolve} 枚举 $d$ 与 $d$ 的倍数，为 $\mathcal{O}(n\log n)$；\texttt{prefix}、\texttt{suffix} 是沿每个质数 $p$ 的幂链各做一次一维前缀和（降维后各质数方向互不影响），共 $\mathcal{O}(n\log\log n)$：前者对每个质数按 $i$ 递增执行 $f_{ip}\mathrel{+}=f_i$，后者按 $i$ 递减执行 $f_{ip}\mathrel{-}=f_i$。两者互为逆运算，\texttt{suffix(prefix(f))} 与 \texttt{prefix(suffix(f))} 都还原出 $f$。
+
+当 $n\le10^7$ 时 $\mathcal{O}(n\log\log n)$ 的实现比 FFT、数论变换做狄利克雷卷积常数小得多，适合求整表的 $\sum_{d\mid n}f(d)$、在反演前后做前后缀转化（例如 $\mu$ 与 $1$ 之间的来回变换）。模板对元素类型 \texttt{T} 泛型，模意义下传入 \texttt{ModInt} 即可；非模意义下需注意 $f*1$ 的数值量级可达 $n\max f$。

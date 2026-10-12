@@ -91,3 +91,67 @@ Z Catalan(int n){
 \subsection{卢卡斯定理}
 
 对于素数 $p$，有 $\binom{n}{k}\equiv \binom{\lfloor n/p\rfloor}{\lfloor k/p\rfloor}\binom{n\bmod p}{k\bmod p}\pmod p$。其中，当 $n<k$ 时，二项式系数 $\dbinom{n}{k}$ 规定为 $0$。
+\subsection{扩展卢卡斯定理（exLucas）}
+
+模数 $MOD$ 不是素数时 $\binom nm\bmod MOD$ 不能直接算（分母可能与 $MOD$ 不互素）。做法是把 $MOD$ 分解为质幂之积 $\prod p_i^{e_i}$，分别在模 $p_i^{e_i}$ 下求出 $\binom nm$，再用中国剩余定理合并（见数论章节）。
+
+求 $\binom nm\bmod p^k$ 时把阶乘中的 $p$ 因子全部提出：由勒让德公式 $v_p(x!)=\sum_{i\ge1}\lfloor x/p^i\rfloor$ 得到分子、分母中 $p$ 的净次数；提出 $p$ 之后的 $x!$ 是一个长为 $p^k$ 的周期连乘积与 $\lfloor x/p\rfloor!$ 的乘积，于是可以递归求解。去掉 $p$ 因子后分母与 $p^k$ 互素，用扩展欧几里得求逆元消去。
+
+\begin{lstlisting}
+using i64 = long long;
+using i128 = __int128;
+namespace ExLucas {
+    i64 exgcd(i64 a,i64 b,i64& x,i64& y){
+        if (!b) return x = 1,y = 0,a;
+        i64 g = exgcd(b,a % b,y,x);
+        return y -= a / b * x,g;
+    }
+    i64 Pow(i64 a,i64 b,i64 mod){
+        i64 res = 1;
+        a %= mod;
+        for (;b;b >>= 1,a = (i128)a * a % mod)
+            if (b & 1) res = (i128)res * a % mod;
+        return res;
+    }
+    i64 inv(i64 a,i64 mod){
+        i64 x,y;
+        exgcd(a,mod,x,y);
+        return (x % mod + mod) % mod;
+    }
+    i64 fac(i64 n,i64 p,i64 pk){
+        if (!n) return 1;
+        i64 res = 1;
+        for (i64 i = 1;i <= pk;i++)
+            if (i % p) res = (i128)res * i % pk;
+        res = Pow(res,n / pk,pk);
+        for (i64 i = 1;i <= n % pk;i++)
+            if (i % p) res = (i128)res * i % pk;
+        return (i128)res * fac(n / p,p,pk) % pk;
+    }
+    i64 cnt(i64 n,i64 p){
+        i64 res = 0;
+        for (;n;n /= p) res += n;
+        return res;
+    }
+    i64 C(i64 n,i64 m,i64 p,i64 pk){
+        i64 e = cnt(n,p) - cnt(m,p) - cnt(n - m,p);
+        i64 a = fac(n,p,pk),b = fac(m,p,pk),c = fac(n - m,p,pk);
+        return (i128)Pow(p,e,pk) * a % pk * inv(b,pk) % pk * inv(c,pk) % pk;
+    }
+    i64 C(i64 n,i64 m,i64 mod){
+        if (m < 0 || m > n) return 0;
+        i64 M = mod,ans = 0;
+        for (i64 p = 2;p * p <= mod;p++) if (mod % p == 0){
+            i64 pk = 1;
+            while (mod % p == 0) mod /= p,pk *= p;
+            ans = (ans + (i128)C(n,m,p,pk) * (M / pk) % M * inv(M / pk,pk)) % M;
+        }
+        if (mod > 1) ans = (ans + (i128)C(n,m,mod,mod) * (M / mod) % M * inv(M / mod,mod)) % M;
+        return ans;
+    }
+}
+\end{lstlisting}
+
+\texttt{ExLucas::C(n,m,MOD)} 返回 $\binom nm\bmod MOD$，$n,m$ 可达 $10^{18}$，$MOD$ 为 $10^{18}$ 以内的任意正整数；$m<0$ 或 $m>n$ 返回 $0$，$MOD=1$ 时恒返回 $0$。四参数重载 \texttt{C(n,m,p,pk)} 只算模质幂 $p^k$ 的结果，需要单独用时可直接调用。
+
+复杂度为 $\mathcal{O}\big(\sum_i p_i^{e_i}\log_{p_i}n\big)$，瓶颈是模 $p_i^{e_i}$ 的预处理：$MOD$ 的质幂因子在一百万以内时很快；若 $MOD$ 本身是大素数（此时 $\sum p_i^{e_i}=MOD$）会退化成 $\mathcal{O}(MOD)$ 而过慢，这种情况应直接用素数模下的卢卡斯定理。

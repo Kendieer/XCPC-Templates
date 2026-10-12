@@ -1,0 +1,18 @@
+\section{范德蒙德卷积}
+
+\subsection{常见形式}
+
+又称 Chu--Vandermonde 恒等式，用于把“两个组合数相乘再对下标求和”的卷积合并成单个组合数。约定 $\binom{n}{k}$ 在 $k<0$ 或 $k>n$ 时取 $0$，因此各式的求和范围可放宽为全部整数下标。
+
+通常情况下有以下四种形式：
+
+\begin{enumerate}
+    \item $$\sum_{i=0}^{k}\binom{n}{i}\binom{m}{k-i} = \binom{n+m}{k}$$
+    \item $$\sum_{i=0}^{\min(n,m)}\binom{n}{i}\binom{m}{i} = \binom{n+m}{m}$$
+    \item $$\sum_{i=0}^{n}\binom{n}{i}^{2} = \binom{2n}{n}$$
+    \item $$\sum_{i=1}^{n}\binom{n}{i}\binom{n}{i-1} = \binom{2n}{n-1}$$
+\end{enumerate}
+
+第一式即组合意义：从 $n+m$ 个元素中取 $k$ 个，按其中属于前 $n$ 个的个数 $i$ 分类；也可由 $(1+x)^{n}(1+x)^{m}=(1+x)^{n+m}$ 比较 $x^{k}$ 的系数得到。第二式把 $\binom{m}{i}$ 改写为 $\binom{m}{m-i}$ 后即第一式；第三式是第二式在 $m=n$ 时的特例；第四式把 $\binom{n}{i-1}$ 改写为 $\binom{n}{n-i+1}$ 后即第一式在 $k=n-1$、$m=n$ 时的特例。
+
+组合数用预处理好的阶乘 $\mathcal{O}(1)$ 计算即可。带额外权值的二重和式如 $\sum_{i}\binom{n}{i}\binom{m}{k-i}f(i)$ 不是单个组合数，需写成 $f(i)\binom{n}{i}$ 与 $\binom{m}{i}$ 的卷积后处理。
