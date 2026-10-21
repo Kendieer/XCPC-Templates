@@ -43,11 +43,11 @@ struct KMP{
 
 \begin{lstlisting}
 namespace Manacher{
-    using Container=std::string;
-    void work(Container &str,std::vector<int> &ans){
+    template<typename T>
+    void work(T &str,std::vector<int> &ans){
         std::vector<int> ch(str.size()*2+3,-1);
         ans = std::vector<int>(str.size()*2+3,0);
-        ch[0] = 448268,ch[ch.size()-1] = -ch[0];
+        ch[0] = 114514,ch[ch.size()-1] = -ch[0];
         for (int i = 0; i < str.size(); ++i) ch[(i+1)*2] = str[i];
         int mid = 1,r = 1;
         for (int i = 1; i < ch.size() - 1; ++i) {
@@ -59,7 +59,8 @@ namespace Manacher{
             }
         }
     }
-    std::vector<int> work(Container &str){
+    template<typename T>
+    std::vector<int> work(T &str){
         std::vector<int> ans;
         return work(str,ans),ans;
     }

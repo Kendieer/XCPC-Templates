@@ -1,0 +1,248 @@
+\section{位集}
+
+\verb|Bitset|：动态位集，\verb|Bitset(n)| 建 $n$ 个 $0$，\verb|Bitset(s)| 按二进制串构造，\verb|s[i]| 对应第 $i$ 位（第 $0$ 位为最低位）。单点操作有 \verb|set|、\verb|XOR|、\verb|OR|、\verb|AND|，另有 \verb|[]| 取值、\verb|count()| 与 \verb|fill_all(v)|。单点操作 $\mathcal{O}(1)$，\verb|count()|、按位运算与移位均为 $\mathcal{O}(n/64)$。
+
+区间操作 \verb|range_set|、\verb|range_or|、\verb|range_and|、\verb|range_xor| 只改动第 $l$ 到第 $r$ 位（闭区间，要求 $l\le r$ 且不越界），参数分别为 \verb|(l,r,v)| 与 \verb|(x,l,r)|。\verb|&|、\verb|^|、\verb+|+| 及其复合赋值的结果长度为两者较大值，较短者缺少的位按 $0$ 参与运算；\verb|<<|、\verb|>>| 与 \texttt{std::bitset} 语义相同，移位数不小于长度时结果为全 $0$。\verb|to_string()| 返回与位序一致的二进制串，可直接流式输出。
+
+\begin{lstlisting}
+struct Bitset {
+    using u32 = unsigned int;
+    using u64 = unsigned long long;
+    using u64x2 = u64 __attribute__((vector_size(16)));
+    enum Op { OpAnd = 0,OpOr = 1,OpXor = 2,OpSet = 3 };
+    u32 siz = 0;
+    std::vector<u64> mask;
+    Bitset(u32 n = 0) : siz(n),mask((n + 63) >> 6) {}
+    Bitset(const std::string& s) : siz(s.size()),mask((siz + 63) >> 6) {
+        for (u32 i = 0;i < siz;i++) {
+            if (s[i] == '1') mask[i >> 6] |= 1ULL << (i & 63);
+        }
+    }
+    bool operator[](u32 i) const {
+        assert(i < siz);
+        return mask[i >> 6] >> (i & 63) & 1;
+    }
+    u32 count() const {
+        u32 res = 0;
+        for (const u64& x : mask) {
+            res += __builtin_popcountll(x);
+        }
+        return res;
+    }
+    void fill_all(bool v) {
+        std::fill(mask.begin(),mask.end(),v ? ~0ULL : 0ULL);
+        clearTail();
+    }
+
+    void set(u32 i,bool v) {
+        range_set(i,i,v);
+    }
+    void range_set(u32 l,u32 r,bool v) {
+        assert(l <= r && r < siz);
+        u64 y = v ? ~0ULL : 0ULL;
+        range_op<OpSet>(l,r,[&](u32) {
+            return y;
+        });
+    }
+    void range_xor(const Bitset& x,u32 l,u32 r) {
+        assert(l <= r && r < siz && r < x.siz);
+        range_op<OpXor>(l,r,[&](u32 i) {
+            return x.mask[i];
+        });
+    }
+    void range_or(const Bitset& x,u32 l,u32 r) {
+        assert(l <= r && r < siz && r < x.siz);
+        range_op<OpOr>(l,r,[&](u32 i) {
+            return x.mask[i];
+        });
+    }
+    void range_and(const Bitset& x,u32 l,u32 r) {
+        assert(l <= r && r < siz && r < x.siz);
+        range_op<OpAnd>(l,r,[&](u32 i) {
+            return x.mask[i];
+        });
+    }
+
+    void XOR(u32 i,bool v) {
+        assert(i < siz);
+        op_bits<OpXor>(mask[i >> 6],i & 63,i & 63,v ? ~0ULL : 0ULL);
+    }
+    void OR(u32 i,bool v) {
+        assert(i < siz);
+        op_bits<OpOr>(mask[i >> 6],i & 63,i & 63,v ? ~0ULL : 0ULL);
+    }
+    void AND(u32 i,bool v) {
+        assert(i < siz);
+        op_bits<OpAnd>(mask[i >> 6],i & 63,i & 63,v ? ~0ULL : 0ULL);
+    }
+
+    Bitset& operator&=(const Bitset& x) {
+        expand(x.siz);
+        u32 m = x.mask.size();
+        op_words<OpAnd>(mask.data(),mask.data(),x.mask.data(),m);
+        std::fill(mask.begin() + m,mask.end(),0);
+        return *this;
+    }
+    Bitset& operator|=(const Bitset& x) {
+        expand(x.siz);
+        op_words<OpOr>(mask.data(),mask.data(),x.mask.data(),x.mask.size());
+        return *this;
+    }
+    Bitset& operator^=(const Bitset& x) {
+        expand(x.siz);
+        op_words<OpXor>(mask.data(),mask.data(),x.mask.data(),x.mask.size());
+        return *this;
+    }
+
+    Bitset& operator<<=(int x) {
+        assert(x >= 0);
+        if (x >= (int)siz) {
+            fill_all(0);
+            return *this;
+        }
+        u32 n = mask.size(),d = x >> 6,b = x & 63;
+        if (b) {
+            shift_left(mask.data(),n,d,b);
+        } else {
+            std::copy_backward(mask.begin(),mask.begin() + (n - d),mask.end());
+        }
+        std::fill(mask.begin(),mask.begin() + d,0);
+        clearTail();
+        return *this;
+    }
+    Bitset& operator>>=(int x) {
+        assert(x >= 0);
+        if (x >= (int)siz) {
+            fill_all(0);
+            return *this;
+        }
+        u32 n = mask.size(),d = x >> 6,b = x & 63;
+        if (b) {
+            shift_right(mask.data(),n,d,b);
+        } else {
+            std::copy(mask.begin() + d,mask.end(),mask.begin());
+        }
+        std::fill(mask.begin() + (n - d),mask.end(),0);
+        clearTail();
+        return *this;
+    }
+
+    friend Bitset operator & (const Bitset& x,const Bitset& y) {
+        return binop<OpAnd>(x,y);
+    }
+    friend Bitset operator | (const Bitset& x,const Bitset& y) {
+        return binop<OpOr>(x,y);
+    }
+    friend Bitset operator ^ (const Bitset& x,const Bitset& y) {
+        return binop<OpXor>(x,y);
+    }
+    friend Bitset operator << (const Bitset& x,int y) {
+        Bitset r(x);
+        r <<= y;
+        return r;
+    }
+    friend Bitset operator >> (const Bitset& x,int y) {
+        Bitset r(x);
+        r >>= y;
+        return r;
+    }
+
+    std::string to_string() const {
+        std::string s(siz,'0');
+        for (u32 i = 0;i < siz;i++) {
+            s[i] += mask[i >> 6] >> (i & 63) & 1;
+        }
+        return s;
+    }
+    friend std::ostream& operator<<(std::ostream& os,const Bitset& x) {
+        return os << x.to_string();
+    }
+private:
+    void expand(u32 n) {
+        if (siz >= n) return;
+        mask.resize((n + 63) >> 6);
+        siz = n;
+    }
+    void clearTail() {
+        if (siz & 63) mask.back() &= (1ULL << (siz & 63)) - 1;
+    }
+    template<Op OP,class F>
+    void range_op(u32 l,u32 r,F g) {
+        u32 a = l >> 6,b = r >> 6;
+        if (a == b) {
+            op_bits<OP>(mask[a],l & 63,r & 63,g(a));
+        } else {
+            op_bits<OP>(mask[a],l & 63,63,g(a));
+            for (u32 i = a + 1;i < b;i++) {
+                op_bits<OP>(mask[i],0,63,g(i));
+            }
+            op_bits<OP>(mask[b],0,r & 63,g(b));
+        }
+    }
+    template<Op OP>
+    static Bitset binop(const Bitset& x,const Bitset& y) {
+        Bitset r(std::max(x.siz,y.siz));
+        u32 m = std::min(x.mask.size(),y.mask.size());
+        op_words<OP>(r.mask.data(),x.mask.data(),y.mask.data(),m);
+        if (OP != OpAnd) {
+            std::copy(x.mask.begin() + m,x.mask.end(),r.mask.begin() + m);
+            std::copy(y.mask.begin() + m,y.mask.end(),r.mask.begin() + m);
+        }
+        return r;
+    }
+    static u64x2 load(const u64* p) {
+        u64x2 v;
+        std::memcpy(&v,p,16);
+        return v;
+    }
+    static void store(u64* p,u64x2 v) {
+        std::memcpy(p,&v,16);
+    }
+    template<Op OP>
+    static void op_words(u64* d,const u64* a,const u64* b,u32 m) {
+        auto apply = [](u64x2 x,u64x2 y) {
+            return OP == OpAnd ? x & y : OP == OpOr ? x | y : x ^ y;
+        };
+        u32 i = 0;
+        for (;i + 2 <= m;i += 2) {
+            store(d + i,apply(load(a + i),load(b + i)));
+        }
+        for (;i < m;i++) {
+            d[i] = OP == OpAnd ? a[i] & b[i] : OP == OpOr ? a[i] | b[i] : a[i] ^ b[i];
+        }
+    }
+    static void shift_left(u64* a,u32 n,u32 d,u32 b) {
+        u32 i = n - 1;
+        for (;i >= d + 2;i -= 2) {
+            store(a + i - 1,load(a + i - d - 1) << b | load(a + i - d - 2) >> (64 - b));
+        }
+        for (;i > d;i--) {
+            a[i] = a[i - d] << b | a[i - d - 1] >> (64 - b);
+        }
+        a[d] = a[0] << b;
+    }
+    static void shift_right(u64* a,u32 n,u32 d,u32 b) {
+        u32 i = 0;
+        for (;i + d + 2 < n;i += 2) {
+            store(a + i,load(a + i + d) >> b | load(a + i + d + 1) << (64 - b));
+        }
+        for (;i + d < n - 1;i++) {
+            a[i] = a[i + d] >> b | a[i + d + 1] << (64 - b);
+        }
+        a[n - d - 1] = a[n - 1] >> b;
+    }
+    template<Op OP>
+    static void op_bits(u64& x,u32 l,u32 r,u64 y) {
+        u64 z = (~0ULL >> (63 - (r - l))) << l;
+        if (OP == OpAnd) {
+            x = (x & ~z) | (x & y & z);
+        } else if (OP == OpOr) {
+            x |= y & z;
+        } else if (OP == OpXor) {
+            x ^= y & z;
+        } else {
+            x = (x & ~z) | (y & z);
+        }
+    }
+};
+\end{lstlisting}

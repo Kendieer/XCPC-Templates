@@ -1,0 +1,76 @@
+\section{哈夫曼树}
+
+\verb|HuffmanTree<T>|：由权值数组建哈夫曼树，默认二叉，构造时传入 \verb|k| 得到 $k$ 叉（$k\ge 2$）。\verb|wpl| 为最小带权路径长度，即每次合并 $k$ 个最小权值的最小总代价；\verb|dep[i]| 为第 $i$ 个符号的码长，\verb|code(i)| 返回其编码，元素为 $0$ 到 $k-1$ 的儿子编号。$k>2$ 时自动补权值为 $0$ 的虚叶使树满 $k$ 叉，虚叶不占符号下标；$n=1$ 时唯一符号编码为空。
+
+树按编号存于 \verb|val| 与 \verb|son|：$[0,n)$ 为符号叶，其后为补位虚叶与内部结点，\verb|root| 为根，\verb|son[u]| 为结点 $u$ 的儿子表。建树与 \verb|wpl| 为 $\mathcal{O}(n\log n)$，\verb|code(i)| 单次 $\mathcal{O}(dep[i])$。常用于合并果子与哈夫曼编码。
+
+\begin{lstlisting}
+template<typename T = long long>
+struct HuffmanTree {
+    using u32 = unsigned int;
+    using Entry = std::pair<T,u32>;
+    u32 n,k,root = 0;
+    T wpl = 0;
+    std::vector<T> val;
+    std::vector<std::vector<u32>> son;
+    std::vector<u32> dep;
+    HuffmanTree(const std::vector<T>& w,u32 K = 2) : n(w.size()),k(K) {
+        assert(k >= 2);
+        if (n == 0) return;
+        val = w;
+        son.resize(n);
+        u32 d = (k - 1 - (n - 1) % (k - 1)) % (k - 1);
+        std::priority_queue<Entry,std::vector<Entry>,std::greater<Entry>> pq;
+        for (u32 i = 0;i < n;i++) {
+            pq.push({val[i],i});
+        }
+        for (u32 i = 0;i < d;i++) {
+            val.push_back(0);
+            son.emplace_back();
+            pq.push({0,val.size() - 1});
+        }
+        fa.resize(val.size());
+        idx.resize(val.size());
+        while (pq.size() > 1) {
+            T sum = 0;
+            u32 u = val.size();
+            son.emplace_back();
+            for (u32 i = 0;i < k;i++) {
+                auto [x,v] = pq.top();
+                pq.pop();
+                sum += x;
+                son[u].push_back(v);
+                fa[v] = u;
+                idx[v] = i;
+            }
+            wpl += sum;
+            val.push_back(sum);
+            fa.push_back(0);
+            idx.push_back(0);
+            pq.push({sum,u});
+        }
+        root = pq.top().second;
+        fa[root] = root;
+        std::vector<u32> dpt(val.size(),0),que{root};
+        for (u32 h = 0;h < que.size();h++) {
+            u32 u = que[h];
+            for (u32 v : son[u]) {
+                dpt[v] = dpt[u] + 1;
+                que.push_back(v);
+            }
+        }
+        dep.assign(dpt.begin(),dpt.begin() + n);
+    }
+    std::vector<u32> code(u32 i) const {
+        assert(i < n);
+        std::vector<u32> s;
+        for (u32 u = i;u != root;u = fa[u]) {
+            s.push_back(idx[u]);
+        }
+        std::reverse(s.begin(),s.end());
+        return s;
+    }
+private:
+    std::vector<u32> fa,idx;
+};
+\end{lstlisting}
