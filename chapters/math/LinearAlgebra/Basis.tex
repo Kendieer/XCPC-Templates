@@ -1,8 +1,8 @@
 \section{线性基}
 
-用于维护一组数的线性基，可求子集最大异或和、判断某数能否由集合内异或表示、求基的秩等。\texttt{template<int N>} 为最高可处理的二进制位（默认 30，可支持 $\le 2^{31}-1$ 的整数）。
+用于维护一组数的线性基，可求子集最大异或和、判断某数能否由集合内异或表示、求基的秩等。\texttt{template<int N>} 为最高可处理的二进制位（默认 30，可支持 $\le 2^{31}-1$ 的整数），单次插入 $\mathcal{O}(N)$。
 
-\texttt{insert(x)} 插入 \texttt{x}，返回 \texttt{true} 表示新增了独立基向量，\texttt{false} 表示 \texttt{x} 可由现有基表示。\texttt{operator[](i)} 取第 \texttt{i} 位的基向量，\texttt{count()} 返回基的秩，\texttt{operator==} 判断两个基是否等价（可表示的异或空间相同）。
+\texttt{insert(x)} 插入 \texttt{x}，返回 \texttt{true} 表示新增了独立基向量，\texttt{false} 表示 \texttt{x} 可由现有基表示。基始终为最简形式：\texttt{operator[](i)} 返回主元位为 \texttt{i} 的基向量（无则为 0），\texttt{count()} 返回基的秩；\texttt{operator==} 直接比较两个基，判断是否表示同一异或空间，结果与插入顺序无关。
 
 \begin{lstlisting}
 template<int N = 30>
@@ -21,9 +21,13 @@ public:
             if (!(x >> i & 1)) continue;
             if (!b[i]) {
                 b[i] = x;
-                for (int j = N;j >= 0;j--){
+                for (int j = 0;j <= N;j++){
                     if (i == j || !b[j]) continue;
-                    if (b[j] >> i & 1) b[j] ^= x;
+                    if (j > i) {
+                        if (b[j] >> i & 1) b[j] ^= b[i];
+                    } else {
+                        if (b[i] >> j & 1) b[i] ^= b[j];
+                    }
                 }
                 ++cnt;
                 return 1;
@@ -31,14 +35,13 @@ public:
         }
         return 0;
     }
-    i64 operator[](const int& i){return b[i];}
     i64 operator[](const int& i) const {return b[i];}
     bool operator==(const Basis& rhs) const {
-        if (cnt != rhs.cnt) return 0;
-        Basis t = *this;
-        for (int i = N;i >= 0;i--)
-            if (rhs.b[i]) t.insert(rhs.b[i]);
-        return t.cnt == cnt;
+        if (cnt != rhs.count()) return 0;
+        for (int i = N;i >= 0;i--) {
+            if (b[i] != rhs.b[i]) return 0;
+        }
+        return 1;
     }
     int count() const {
         return cnt;
