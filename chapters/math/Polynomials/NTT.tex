@@ -35,7 +35,7 @@ void dft(const int& len,Poly& arr,int sign){ // sign = -1 -> IDFT
             MInt w = 1,tmp;
             for (int i = l,j = 0;j < mid;i ++,j ++,w *= Wn){
                 tmp = arr[i+mid] * w;
-                arr[i+mid] = arr[i].val - tmp;
+                arr[i+mid] = arr[i] - tmp;
                 arr[i] += tmp;
             }
         }

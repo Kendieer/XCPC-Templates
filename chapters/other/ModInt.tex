@@ -16,65 +16,81 @@ struct ModInt{
         }
     }
     long long operator()() const { return val; }
-    constexpr ModInt operator-() const {
+    ModInt operator-() const {
         return ModInt(MOD - val);
     }
-    constexpr ModInt operator~() const {
+    ModInt operator~() const {
         assert(val != 0);
         return Pow(val,MOD-2);
     }
-    constexpr ModInt& operator+=(const ModInt& x){
-        return val += x(),val = norm(val),*this;
+    ModInt& operator+=(const ModInt& x){
+        val += x();
+        if (val >= MOD) val -= MOD;
+        return *this;
     }
-    constexpr ModInt& operator-=(const ModInt& x){
-        return val -= x(),val = norm(val),*this;
+    ModInt& operator-=(const ModInt& x){
+        val -= x();
+        if (val < 0) val += MOD;
+        return *this;
     }
-    constexpr ModInt& operator*=(const ModInt& x){
-        return val *= x(),val = norm(val),*this;
+    ModInt& operator*=(const ModInt& x){
+        val = val * x() % MOD;
+        return *this;
     }
-    constexpr ModInt& operator/=(const ModInt& x){
-        return val *= (~x)(),val = norm(val),*this;
+    ModInt& operator/=(const ModInt& x){
+        val = val * Pow(x,MOD - 2)() % MOD;
+        return *this;
     }
-    constexpr bool operator==(const ModInt& x) const {
+    bool operator==(const ModInt& x) const {
         return val == x();
     }
-    constexpr ModInt& operator++(){
-        return val ++,val = norm(val),*this;
+    ModInt& operator++(){
+        val++;
+        if (val >= MOD) val = 0;
+        return *this;
     }
-    constexpr ModInt operator++(int){
+    ModInt operator++(int){
         ModInt v = *this;
-        return val ++,val = norm(val),v;
+        val++;
+        if (val >= MOD) val = 0;
+        return v;
     }
-    constexpr ModInt& operator--(){
-        return val --,val = norm(val),*this;
+    ModInt& operator--(){
+        val--;
+        if (val < 0) val = MOD - 1;
+        return *this;
     }
-    constexpr ModInt operator--(int){
+    ModInt operator--(int){
         ModInt v = *this;
-        return val --,val = norm(val),v;
+        val--;
+        if (val < 0) val = MOD - 1;
+        return v;
     }
-    constexpr friend ModInt operator+(ModInt x,const ModInt& y){
+    friend ModInt operator+(ModInt x,const ModInt& y){
         return x += y;
     }
-    constexpr friend ModInt operator-(ModInt x,const ModInt& y){
+    friend ModInt operator-(ModInt x,const ModInt& y){
         return x -= y;
     }
-    constexpr friend ModInt operator*(ModInt x,const ModInt& y){
+    friend ModInt operator*(ModInt x,const ModInt& y){
         return x *= y;
     }
-    constexpr friend ModInt operator/(ModInt x,const ModInt& y){
+    friend ModInt operator/(ModInt x,const ModInt& y){
         return x /= y;
     }
-    constexpr friend std::ostream& operator<<(std::ostream& os,const ModInt& x){
+    friend std::ostream& operator<<(std::ostream& os,const ModInt& x){
         return os << x();
     }
-    constexpr friend std::istream& operator>>(std::istream& is,ModInt &x){
+    friend std::istream& operator>>(std::istream& is,ModInt &x){
         is >> x.val, x.val = norm(x.val);
         return is;
     }
-    constexpr static long long norm(const long long &x){
-        return x < 0 ? (x % MOD + MOD) % MOD : x % MOD;
+    static long long norm(long long x){
+        x %= MOD;
+        if (x < 0) x += MOD;
+        return x;
     }
-    constexpr static ModInt Pow(ModInt x,long long y){
+    static ModInt Pow(ModInt x,long long y){
         ModInt ans = 1;
         for (;y; y >>= 1,x *= x)
             if (y & 1) ans *= x;
@@ -94,80 +110,96 @@ static int MOD = 998244353;
 struct arbModInt{
     long long val = 0;
     arbModInt(long long x = 0):val(norm(x)){}
-    arbModInt(const arbModInt& x):val(x.val){}
     arbModInt(const std::string& s){
         for (const int& ch : s){
             val = val * 10 + ch - '0';
             val = norm(val);
         }
     }
-    constexpr static void setMod(int p){
+    static void setMod(int p){
         MOD = p;
     }
     long long operator()() const { return val; }
-    constexpr arbModInt operator-() const {
+    arbModInt operator-() const {
         return arbModInt(MOD - val);
     }
-    constexpr arbModInt operator~() const {
+    arbModInt operator~() const {
         assert(val != 0);
         return Pow(val,MOD-2);
     }
-    constexpr arbModInt& operator+=(const arbModInt& x){
-        return val += x(),val = norm(val),*this;
+    arbModInt& operator+=(const arbModInt& x){
+        val += x();
+        if (val >= MOD) val -= MOD;
+        return *this;
     }
-    constexpr arbModInt& operator-=(const arbModInt& x){
-        return val -= x(),val = norm(val),*this;
+    arbModInt& operator-=(const arbModInt& x){
+        val -= x();
+        if (val < 0) val += MOD;
+        return *this;
     }
-    constexpr arbModInt& operator*=(const arbModInt& x){
-        return val *= x(),val = norm(val),*this;
+    arbModInt& operator*=(const arbModInt& x){
+        val = val * x() % MOD;
+        return *this;
     }
-    constexpr arbModInt& operator/=(const arbModInt& x){
-        return val *= (~x)(),val = norm(val),*this;
+    arbModInt& operator/=(const arbModInt& x){
+        val = val * Pow(x,MOD - 2)() % MOD;
+        return *this;
     }
     constexpr bool operator==(const arbModInt& x) const {
         return val == x();
     }
-    constexpr arbModInt& operator++(){
-        return val ++,val = norm(val),*this;
+    arbModInt& operator++(){
+        val++;
+        if (val >= MOD) val = 0;
+        return *this;
     }
-    constexpr arbModInt operator++(int){
+    arbModInt operator++(int){
         arbModInt v = *this;
-        return val ++,val = norm(val),v;
+        val++;
+        if (val >= MOD) val = 0;
+        return v;
     }
-    constexpr arbModInt& operator--(){
-        return val --,val = norm(val),*this;
+    arbModInt& operator--(){
+        val--;
+        if (val < 0) val = MOD - 1;
+        return *this;
     }
-    constexpr arbModInt operator--(int){
+    arbModInt operator--(int){
         arbModInt v = *this;
-        return val --,val = norm(val),v;
+        val--;
+        if (val < 0) val = MOD - 1;
+        return v;
     }
-    constexpr friend arbModInt operator+(arbModInt x,const arbModInt& y){
+    friend arbModInt operator+(arbModInt x,const arbModInt& y){
         return x += y;
     }
-    constexpr friend arbModInt operator-(arbModInt x,const arbModInt& y){
+    friend arbModInt operator-(arbModInt x,const arbModInt& y){
         return x -= y;
     }
-    constexpr friend arbModInt operator*(arbModInt x,const arbModInt& y){
+    friend arbModInt operator*(arbModInt x,const arbModInt& y){
         return x *= y;
     }
-    constexpr friend arbModInt operator/(arbModInt x,const arbModInt& y){
+    friend arbModInt operator/(arbModInt x,const arbModInt& y){
         return x /= y;
     }
-    constexpr friend std::ostream& operator<<(std::ostream& os,const arbModInt& x){
+    friend std::ostream& operator<<(std::ostream& os,const arbModInt& x){
         return os << x();
     }
-    constexpr friend std::istream& operator>>(std::istream& is,arbModInt &x){
+    friend std::istream& operator>>(std::istream& is,arbModInt &x){
         is >> x.val, x.val = norm(x.val);
         return is;
     }
-    constexpr static long long norm(long long x){
-        return x < 0 ? (x % MOD + MOD) % MOD : x % MOD;
+    static long long norm(long long x){
+        x %= MOD;
+        if (x < 0) x += MOD;
+        return x;
     }
-    constexpr static arbModInt Pow(arbModInt x,long long y){
+    static arbModInt Pow(arbModInt x,long long y){
         arbModInt ans = 1;
         for (;y; y >>= 1,x *= x)
             if (y & 1) ans *= x;
         return ans;
     }
 };
+using Z = arbModInt;
 \end{lstlisting}
